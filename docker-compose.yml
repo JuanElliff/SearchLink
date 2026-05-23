@@ -1,0 +1,34 @@
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: searchlink-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - searchlink-net
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: searchlink-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/searchlink
+      - PORT=8080
+    depends_on:
+      - mongodb
+    networks:
+      - searchlink-net
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+
+networks:
+  searchlink-net:
+    driver: bridge

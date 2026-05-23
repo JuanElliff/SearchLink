@@ -1,0 +1,40 @@
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Datos persistentes de MongoDB (volumen local si se usa bind mount)
+mongo-data/
+
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Gradle (por si se migra)
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IDE — IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# IDE — VSCode
+.vscode/settings.json
+.vscode/launch.json
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Archivos de Spring Boot DevTools
+spring-devtools.properties
