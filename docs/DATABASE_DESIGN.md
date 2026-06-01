@@ -171,49 +171,63 @@ Mantener un tercer campo `ubicacion_efectiva` denormalizado, computado en el bac
 
 ## 4. Divergencia documentada respecto al slide 8
 
-### Lo que muestra el slide
+Verificado contra el contenido real de la presentación (**Entrega 1, slide 8**). Ese slide modela **3 colecciones**, lo que coincide con el modelo implementado. Hay **dos** divergencias puntuales respecto al código, ambas registradas acá como ajustes justificados (ítem 8 de la rúbrica — "ajustes justificados sobre el diseño original").
 
-El slide 8 de `SearchLink_Presentacion 1.pptx` modela los tokens así (extracto):
+### 4.1. Divergencia de NOMBRE: `perfiles_busqueda` → `alertas`
 
-```
-usuarios: {
-  ...,
-  fcm_tokens: [String]
-}
-```
+| Fuente | Nombre de la colección de la persona desaparecida |
+|---|---|
+| Entrega 1, slide 8 | `perfiles_busqueda` |
+| Código implementado | `alertas` |
 
-Un array plano de strings. Sin metadata por token.
+**Justificación.** La entidad implementada unifica *persona desaparecida* + *caso/aviso activo* en un único documento: no es sólo el perfil de la persona, es la alerta publicada con su estado, radio de despacho, vencimiento (TTL) y ubicación. El nombre `alertas` describe esa entidad operativa con más precisión que `perfiles_busqueda`. Se unifica toda la terminología del proyecto bajo "alerta".
 
-### Lo que se implementó
+**DEUDA.** El slide 8 de la **PRESENTACIÓN FINAL** debe rehacerse para decir `alertas`, no `perfiles_busqueda`. La Entrega 1 ya fue entregada y no se reescribe; la corrección aplica a la presentación final para que la documentación quede consistente con el código.
 
-```
-usuarios: {
-  ...,
-  dispositivos: [{
-    fcm_token:     String,
-    plataforma:    String,    // "web" | "android" | "ios"
-    activo:        Boolean,
-    ultimo_uso:    ISODate,
-    registrado_en: ISODate
-  }]
-}
-```
+### 4.2. Divergencia de ESTRUCTURA de tokens: lista plana → sub-objetos
 
-Sub-objetos con metadata por dispositivo.
+| Fuente | Modelo de tokens FCM |
+|---|---|
+| Entrega 1, slide 8 | `fcm_tokens` — lista plana de strings, sin estructura |
+| Código implementado | `dispositivos[]` — array de sub-objetos `{ fcm_token, plataforma, activo, ultimo_uso, registrado_en }` |
 
-### Justificación del ajuste (ítem 8 de la rúbrica — "ajustes justificados sobre el diseño original")
+**Justificación.** La lista plana no permite invalidar tokens caducados de forma segura. Cuando FCM responde `UNREGISTERED` para un token, el sistema hace `$pull` del sub-objeto correspondiente; el modelo de sub-objetos además conserva metadata (`plataforma`, `ultimo_uso`) útil para auditoría y habilita el toggle manual de notificaciones vía el flag `activo`. Es la práctica recomendada por la documentación de FCM para el ciclo de vida de tokens (registro → uso → invalidación al caducar).
 
-Tres motivos operativos que el array plano no soporta:
+En concreto, lo que la lista plana no soporta y los sub-objetos sí:
 
-1. **Invalidación de tokens muertos.** Cuando FCM responde `UNREGISTERED` para un token, se necesita identificar *cuál* entrada del array remover. Con `[String]` plano se puede hacer (`$pull` por valor), pero se pierde la oportunidad de auditar qué dispositivo era. Con sub-objetos se mantiene el `plataforma` y `registrado_en` hasta el momento del pull, lo que permite (en logs / métricas) saber qué tipo de cliente fallaba.
-2. **Diagnóstico de pérdida de engagement.** `ultimo_uso` por token permite distinguir un dispositivo activo de uno que el usuario abandonó. Esto es útil para futuras políticas (p. ej. dejar de intentar enviar a un token sin actividad en N meses).
-3. **Toggle de notificaciones desde la UI sin perder el token.** El usuario puede desactivar push sin que el token se borre; cuando reactiva, no hay que re-registrar el device. Con `[String]` plano, el único camino es borrar y re-pedir el token al cliente.
+1. **Invalidación de tokens muertos con auditoría.** El `$pull` ante `UNREGISTERED` conserva `plataforma`/`registrado_en` hasta el momento del borrado, lo que permite (en logs / métricas) saber qué tipo de cliente fallaba.
+2. **Diagnóstico de pérdida de engagement.** `ultimo_uso` por token distingue un dispositivo activo de uno abandonado, base para futuras políticas (p. ej. dejar de enviar a un token sin actividad en N meses).
+3. **Toggle de notificaciones sin perder el token.** El usuario desactiva push (`activo: false`) sin que el token se borre; al reactivar no hay que re-registrar el device. Con lista plana el único camino es borrar y re-pedir el token al cliente.
 
-Ninguno de estos requisitos contradice el slide a nivel conceptual — el slide modela "el usuario tiene varios tokens FCM" — sólo lo refina con la metadata operativa que el path real necesita. **El slide no se rehace** (es la presentación entregada); el ajuste se documenta acá como justificación del ítem 8 de la rúbrica.
+Ninguna de estas dos divergencias contradice el slide a nivel conceptual — el slide ya modela 3 colecciones y "el usuario tiene varios tokens FCM" — sólo refinan terminología (4.1) y estructura (4.2) según lo que el path real necesita.
 
 ---
 
-## 5. Estado actual y próximos pasos
+## 5. Decisiones pendientes registradas
+
+Decisiones abiertas que se resuelven en bloques posteriores; se registran acá para no perderlas.
+
+### 5.1. Índice `unique: true` sobre `dispositivos.fcm_token` — A REVISAR
+
+Hoy el init declara `db.usuarios.createIndex({ "dispositivos.fcm_token": 1 }, { unique: true, sparse: true })`.
+
+**Riesgo:** los tokens FCM pueden **reasignarse entre usuarios** — p. ej. logout de un usuario y login de otro en el mismo dispositivo físico, donde FCM puede devolver el mismo token. El constraint `unique` bloquearía esa reasignación con error de duplicado en el alta del segundo usuario, en vez de transferir el token.
+
+**A decidir cuando se implemente el alta de dispositivos** (`POST /api/usuarios/{id}/dispositivos`): si se mantiene `unique` y el flujo de alta hace `$pull` del token en cualquier otro usuario antes de insertarlo (garantizando unicidad por reasignación explícita), o si se relaja el constraint.
+
+### 5.2. Query 2 (avistamientos por cercanía) — ¿devolver DISTANCIA?
+
+El cambio de `geoNear` → `find` con `Criteria` en `AlertaService` dejó de exponer la distancia de cada resultado (sólo filtra por radio, no la devuelve).
+
+**A decidir en el bloque de geolocalización:** si la query de avistamientos por cercanía necesita **ordenar por distancia** (y por lo tanto devolverla), en cuyo caso habría que volver a una agregación `$geoNear` que expone `distanceField`, o si alcanza con el filtrado por radio sin orden por cercanía.
+
+### 5.3. Combinación de las dos queries geo (coalesce de ubicación)
+
+Ver §3.5: dos queries + unión sin duplicados (Opción 1) vs. campo `ubicacion_efectiva` materializado (Opción 2). A resolver cuando exista el endpoint de actualización de GPS.
+
+---
+
+## 6. Estado actual y próximos pasos
 
 - **Implementado:** modelo de 3 colecciones; dos campos de ubicación (precargada normal + actual sparse); índices, script de init (`mongo/init/01_init.js`) con seeds que cubren ambas ramas del coalesce; lectura de tokens embebidos lista en `AlertaService` (variable `tokensActivos`).
 - **Pendiente:**

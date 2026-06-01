@@ -239,11 +239,24 @@ Ordenado para que el paso 1 sea el camino mínimo al **pipeline E2E funcionando*
 - Entrega: `README.md` reescrito para reflejar Spring Boot + Mongo único; `ESTADO.md` ampliado con esta sección de decisiones.
 - Dependencias: ninguna.
 
-### Paso 1 — Revertir a 3 colecciones (embebido)
+### Paso 1 — Revertir a 3 colecciones (embebido) — ✅ COMPLETO (commit `b109f42`)
 
 - Ítem(s): 2 (modelado), 9 (consistencia documental). Defensiva para 8 (al eliminar la divergencia, deja de existir un "ajuste no documentado" a explicar).
-- Entrega: `Usuario.java` con array embebido de tokens, eliminación de `Dispositivo.java`/`DispositivoRepository.java`, ajuste de `AlertaService.notificarUsuariosCercanos` a 1 query con proyección, actualización de `mongo/init/01_init.js`.
+- Entrega: `Usuario.java` con array embebido de tokens, eliminación de `Dispositivo.java`/`DispositivoRepository.java`, ajuste de `AlertaService.notificarUsuariosCercanos`, actualización de `mongo/init/01_init.js`.
 - Dependencia: ninguna; **debe ir antes de tocar más endpoints**, porque cambia la firma del despacho push.
+- **Hecho (commit `b109f42`):**
+  - 3 colecciones; `dispositivos` embebido como sub-objetos en `Usuario` (`{ fcm_token, plataforma, activo, ultimo_uso, registrado_en }`).
+  - Borrados `Dispositivo.java`, `DispositivoRepository.java`, enum `Plataforma.java`.
+  - Modelo de ubicación opción B: `ubicacion_precargada` (2dsphere normal, obligatoria) + `ubicacion_actual` (2dsphere sparse, GPS con consentimiento). El push de esta fase corre sobre `ubicacion_precargada`.
+  - `mongo/init/01_init.js`: 3 colecciones, índices 2dsphere + sparse + TTL, seeds para QA de ambas ramas del coalesce.
+  - `docs/DATABASE_DESIGN.md` creado (reemplaza el `DATABASE_DESIGN.md` raíz, eliminado); documenta modelo, embedding, ubicación B, divergencias vs Entrega 1 slide 8 (nombre `perfiles_busqueda`→`alertas` y tokens planos→sub-objetos), y decisiones pendientes (§5.1 unique fcm_token, §5.2 distancia avistamientos, §5.3/§3.5 combinación de queries geo).
+  - Fix `annotationProcessorPaths` (Lombok) en `pom.xml` para que compile vía Maven CLI.
+- **Deuda abierta del Paso 1** (documentada, no bloqueante): rehacer el slide 8 de la **presentación final** para que diga `alertas` (no `perfiles_busqueda`).
+
+### Próximo — Auth (JWT + bcrypt + roles)
+
+- Lo que sigue tras el Paso 1 es la capa de autenticación: hashing de contraseñas con **bcrypt**, emisión/validación de **JWT** firmado, y autorización por **roles** (ciudadano vs operador). Hoy ausente por completo (sin Spring Security, sin JWT, sin bcrypt en `pom.xml` ni en código).
+- Nota: el Paso 2 original abajo planteaba auth *liviana* (token opaco) como atajo del E2E; la decisión vigente es ir directo a JWT+bcrypt+roles. Revisar el alcance del Paso 2 contra esto antes de implementarlo.
 
 ### Paso 2 — Endpoints faltantes mínimos del backend (camino mínimo del E2E)
 
