@@ -7,25 +7,33 @@ db = db.getSiblingDB("searchlink");
 // ─── Colecciones ─────────────────────────────────────────────────────────────
 
 db.createCollection("usuarios");
-db.createCollection("dispositivos");
 db.createCollection("alertas");
 db.createCollection("avistamientos");
 
 // ─── Índices: usuarios ────────────────────────────────────────────────────────
 
-// Índice geoespacial para consultas $nearSphere / $geoWithin
-db.usuarios.createIndex({ "ubicacion": "2dsphere" });
-
 // Email único para registro
 db.usuarios.createIndex({ "email": 1 }, { unique: true });
 
-// ─── Índices: dispositivos ────────────────────────────────────────────────────
+// Ubicación precargada (cargada al registrarse, siempre presente):
+// índice 2dsphere normal — soporta el path de despacho push actual.
+db.usuarios.createIndex({ "ubicacion_precargada": "2dsphere" });
 
-// Buscar dispositivos de un usuario
-db.dispositivos.createIndex({ "usuario_id": 1 });
+// Ubicación actual (GPS con consentimiento, opcional):
+// índice 2dsphere sparse. Los 2dsphere ya ignoran documentos sin el campo,
+// pero declaramos sparse para explicitar la semántica de campo opcional.
+db.usuarios.createIndex(
+  { "ubicacion_actual": "2dsphere" },
+  { sparse: true }
+);
 
-// Token FCM único por dispositivo
-db.dispositivos.createIndex({ "fcm_token": 1 }, { unique: true });
+// Tokens FCM embebidos en usuarios.dispositivos[].fcm_token.
+// Sparse + único: un token no puede pertenecer a dos usuarios, pero un usuario
+// puede no tener ningún dispositivo todavía.
+db.usuarios.createIndex(
+  { "dispositivos.fcm_token": 1 },
+  { unique: true, sparse: true }
+);
 
 // ─── Índices: alertas ─────────────────────────────────────────────────────────
 
@@ -53,19 +61,61 @@ db.avistamientos.createIndex({ "alerta_id": 1 });
 db.avistamientos.createIndex({ "creado_en": -1 });
 
 // ─── Datos de prueba ──────────────────────────────────────────────────────────
+// Seeds elegidos para cubrir ambas ramas del coalesce de ubicación:
+//   - Operador y ciudadano "Belgrano" tienen SOLO ubicacion_precargada.
+//   - Ciudadano "Caballito" tiene precargada Y actual (rama GPS con consentimiento).
 
-db.usuarios.insertOne({
-  nombre: "Operador Prueba",
-  email: "operador@searchlink.dev",
-  password_hash: "$2b$10$placeholder_hash",
-  rol: "operador",
-  ubicacion: {
-    type: "Point",
-    coordinates: [-58.3816, -34.6037]  // Buenos Aires centro
+const ahora = new Date();
+
+db.usuarios.insertMany([
+  {
+    nombre: "Operador Prueba",
+    email: "operador@searchlink.dev",
+    password_hash: "$2b$10$placeholder_hash",
+    rol: "operador",
+    ubicacion_precargada: {
+      type: "Point",
+      coordinates: [-58.3816, -34.6037]  // BA centro (Plaza de Mayo)
+    },
+    // ubicacion_actual ausente: sin consentimiento GPS — rama "precargada" del coalesce
+    activo: true,
+    dispositivos: [],
+    creado_en: ahora,
+    actualizado_en: ahora
   },
-  activo: true,
-  creado_en: new Date(),
-  actualizado_en: new Date()
-});
+  {
+    nombre: "Ciudadano Belgrano (sin GPS)",
+    email: "belgrano@searchlink.dev",
+    password_hash: "$2b$10$placeholder_hash",
+    rol: "ciudadano",
+    ubicacion_precargada: {
+      type: "Point",
+      coordinates: [-58.4566, -34.5627]  // Belgrano
+    },
+    // ubicacion_actual ausente — rama "precargada"
+    activo: true,
+    dispositivos: [],
+    creado_en: ahora,
+    actualizado_en: ahora
+  },
+  {
+    nombre: "Ciudadano Caballito (con GPS)",
+    email: "caballito@searchlink.dev",
+    password_hash: "$2b$10$placeholder_hash",
+    rol: "ciudadano",
+    ubicacion_precargada: {
+      type: "Point",
+      coordinates: [-58.4400, -34.6190]  // Caballito (domicilio)
+    },
+    ubicacion_actual: {
+      type: "Point",
+      coordinates: [-58.4100, -34.6080]  // Almagro (donde está ahora) — rama "actual"
+    },
+    activo: true,
+    dispositivos: [],
+    creado_en: ahora,
+    actualizado_en: ahora
+  }
+]);
 
 print("SearchLink: colecciones e índices creados correctamente.");

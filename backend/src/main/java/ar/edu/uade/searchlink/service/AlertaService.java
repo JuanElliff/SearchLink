@@ -5,13 +5,9 @@ import ar.edu.uade.searchlink.model.EstadoAlerta;
 import ar.edu.uade.searchlink.model.Usuario;
 import ar.edu.uade.searchlink.repository.AlertaRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.geo.Distance;
-import org.springframework.data.geo.GeoResult;
-import org.springframework.data.geo.Metrics;
-import org.springframework.data.geo.Point;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.NearQuery;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
@@ -48,21 +44,28 @@ public class AlertaService {
     }
 
     private void notificarUsuariosCercanos(Alerta alerta) {
-        Point centro = new Point(alerta.getUbicacion().getX(), alerta.getUbicacion().getY());
+        GeoJsonPoint centro = alerta.getUbicacion();
         double radioKm = alerta.getRadioKm() != null ? alerta.getRadioKm() : 10.0;
+        double radioMetros = radioKm * 1000.0;
 
-        NearQuery nearQuery = NearQuery.near(centro)
-                .maxDistance(new Distance(radioKm, Metrics.KILOMETERS))
-                .spherical(true)
-                .query(Query.query(Criteria.where("activo").is(true)));
+        // Esta fase consulta solo ubicacion_precargada. La combinacion con
+        // ubicacion_actual (coalesce por-usuario) queda para el bloque de geolocalizacion.
+        Query query = Query.query(
+                Criteria.where("activo").is(true)
+                        .and("ubicacion_precargada").nearSphere(centro).maxDistance(radioMetros)
+        );
 
-        List<Usuario> usuariosCercanos = mongoTemplate
-                .geoNear(nearQuery, Usuario.class)
-                .getContent()
-                .stream()
-                .map(GeoResult::getContent)
+        List<Usuario> usuariosCercanos = mongoTemplate.find(query, Usuario.class);
+
+        List<String> tokensActivos = usuariosCercanos.stream()
+                .flatMap(u -> u.getDispositivos() == null
+                        ? java.util.stream.Stream.empty()
+                        : u.getDispositivos().stream())
+                .filter(Usuario.Dispositivo::isActivo)
+                .map(Usuario.Dispositivo::getFcmToken)
+                .filter(t -> t != null && !t.isBlank())
                 .collect(Collectors.toList());
 
-        // TODO: despachar notificaciones FCM a usuariosCercanos
+        // TODO: despachar notificaciones FCM a tokensActivos (Paso 3: Firebase Admin SDK)
     }
 }
