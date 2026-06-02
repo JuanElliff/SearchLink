@@ -8,6 +8,67 @@
 
 ---
 
+## Sesión 2026-06-01 — cierre
+
+> Sección de retoma. Lo de abajo (## 0 en adelante) es el relevamiento original del 2026-05-22 y queda como referencia histórica; varios puntos ya se resolvieron (ver acá).
+
+### Completado y commiteado
+
+- **Modelo: 3 colecciones** (`alertas`, `avistamientos`, `usuarios`) con `dispositivos` embebidos en `usuarios`; `ubicacion_precargada` (2dsphere normal) + `ubicacion_actual` (2dsphere sparse). Commit **`b109f42`**.
+- **Docs del Paso 1** (divergencias vs slide 8 + decisiones pendientes). Commit **`a6887c5`**.
+- **Auth completo:** JWT HS256 24h + bcrypt cost 10 + **3 roles** (ADMIN/OPERADOR/ESTANDAR). Registro público fuerza ESTANDAR (hueco de privilegios tapado), chequeo de `activo` en login y en el filtro JWT, `GET /api/usuarios/{id}` restringido por propiedad/rol, validación, errores uniformes. **24 tests** verdes (Mongo embebido flapdoodle) al momento del commit. Commit **`2ecbf7f`**.
+- **Refactor de alertas a DTOs propios** (`CrearAlertaRequest` / `ActualizarAlertaRequest` / `AlertaResponse`), `creado_por` desde el `SecurityContext` (no falsificable), `estado`/`creada_en`/`expira_en` server-side, validación ubicación/radio/lat-lng, `DuplicateKeyException → 409`. Commit **`ade23f7`**. (Este bloque YA se ejecutó; no es "en curso".) Suite total actual: **30 tests** verdes.
+
+### Estado del árbol
+
+`main` 4 commits adelante de `origin/main`, **sin push**. Working tree limpio. Orden de commits: `6129edb → b109f42 → a6887c5 → 2ecbf7f → ade23f7`.
+
+### Próximo al retomar
+
+El bloque de alertas-DTO ya está cerrado. **El próximo bloque es avistamientos.** Dos huecos chicos quedaron señalados en la autocrítica del bloque de alertas, para resolver al arrancar lo próximo:
+- No hay test del `PATCH /api/alertas/{id}` (actualizar estado/radio) — cobertura faltante.
+- Divergencia consciente: el request de alerta usa `ubicacion: {latitud, longitud}` (para validar rango con `@DecimalMin/@DecimalMax`), no GeoJSON `{type, coordinates}`; la **respuesta** sí es GeoJSON estándar. Revisar si se mantiene.
+
+### Orden de bloques restantes
+
+avistamientos (CRUD + verificar; **descomentar la regla de authz ya comentada en `SecurityConfig`**: verificar = OPERADOR+ADMIN)
+→ dispositivos (alta de token FCM)
+→ FCM real (**CREAR proyecto Firebase = bloqueante**)
+→ frontend (React/Vite/Tailwind/Leaflet, PWA)
+→ docs/OpenAPI/manual/README
+→ Unidad IV en papel (CAP/consistencia)
+→ integración E2E + presentación final.
+
+### Deudas registradas
+
+- Índice `unique sparse` en `dispositivos.fcm_token`: revisar por reasignación de tokens (logout/login en mismo device). Ver `docs/DATABASE_DESIGN.md §5.1`.
+- Query de avistamientos por cercanía: ver si necesita devolver distancia (el cambio `geoNear → find` la dejó de exponer). `docs/DATABASE_DESIGN.md §5.2`.
+- Presentación **FINAL**: rehacer slide 8 (colección `alertas`, no `perfiles_busqueda`) y slide 5 (3 roles, no 2). `docs/DATABASE_DESIGN.md §4`.
+- Recuperación de contraseña por email: deuda, al final si hay tiempo.
+- Combinación de las 2 queries geo (coalesce `ubicacion_actual`/`ubicacion_precargada`): decidir en el bloque de geolocalización. `docs/DATABASE_DESIGN.md §3.5 / §5.3`.
+- `DuplicateKeyException → 409` está mapeado y testeado unitariamente, pero `UsuarioService.registrar` sigue con pre-check `findByEmail`; para cerrar la carrera de verdad faltaría dejar propagar la colisión del índice al handler.
+
+### Decisiones descartadas (no reabrir sin motivo)
+
+Refresh token, blacklist de logout, rate limiting, caché del lookup de usuario en el filtro JWT.
+
+### Cómo retomar
+
+Próximo paso: **arrancar el bloque de avistamientos** (CRUD + verificar; descomentar la regla authz). El refactor de alertas a DTOs ya está hecho (`ade23f7`).
+
+**Seeds QA** (passwords en claro, del init `mongo/init/01_init.js` — *corregidos respecto al prompt de cierre, que tenía la credencial del operador desactualizada*):
+
+| Email | Password | Rol |
+|---|---|---|
+| `admin@searchlink.dev` | `Admin1234` | ADMIN |
+| `operador@searchlink.dev` | `Operador1234` | OPERADOR |
+| `belgrano@searchlink.dev` | `Estandar1234` | ESTANDAR |
+| `caballito@searchlink.dev` | `Estandar1234` | ESTANDAR |
+
+**Build/test:** no hay `mvn` en PATH; se usa el Maven cacheado del wrapper (`~/.m2/wrapper/dists/apache-maven-3.9.14/.../bin/mvn -f backend/pom.xml clean test`). Docker no es necesario para los tests (Mongo embebido flapdoodle descarga un `mongod` local).
+
+---
+
 ## 0. Hallazgos cruzados antes del inventario
 
 Tres desalineaciones de fondo que afectan todo lo demás:
