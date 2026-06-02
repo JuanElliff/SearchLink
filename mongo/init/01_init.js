@@ -61,18 +61,25 @@ db.avistamientos.createIndex({ "alerta_id": 1 });
 db.avistamientos.createIndex({ "creado_en": -1 });
 
 // ─── Datos de prueba ──────────────────────────────────────────────────────────
-// Seeds elegidos para cubrir ambas ramas del coalesce de ubicación:
-//   - Operador y ciudadano "Belgrano" tienen SOLO ubicacion_precargada.
-//   - Ciudadano "Caballito" tiene precargada Y actual (rama GPS con consentimiento).
+// Seeds que cubren los TRES roles y ambas ramas del coalesce de ubicación:
+//   - admin y operador y "Belgrano" tienen SOLO ubicacion_precargada.
+//   - "Caballito" tiene precargada Y actual (rama GPS con consentimiento).
+//
+// Passwords en claro para QA (hashes BCrypt cost 10, reales):
+//   admin@searchlink.dev     → "Admin1234"     (rol ADMIN)
+//   operador@searchlink.dev  → "Operador1234"  (rol OPERADOR)
+//   belgrano@searchlink.dev  → "Estandar1234"  (rol ESTANDAR)
+//   caballito@searchlink.dev → "Estandar1234"  (rol ESTANDAR)
+// Este seed es la vía (a) de creación de cuentas privilegiadas (ADMIN/OPERADOR).
 
 const ahora = new Date();
 
 db.usuarios.insertMany([
   {
-    nombre: "Operador Prueba",
-    email: "operador@searchlink.dev",
-    password_hash: "$2b$10$placeholder_hash",
-    rol: "operador",
+    nombre: "Administrador del Sistema",
+    email: "admin@searchlink.dev",
+    password_hash: "$2a$10$7mR1mnaIubxLazux7ljRj.5Vyed4eDY4PqsdCYerFLYAmakVrAl9m",  // "Admin1234"
+    rol: "ADMIN",
     ubicacion_precargada: {
       type: "Point",
       coordinates: [-58.3816, -34.6037]  // BA centro (Plaza de Mayo)
@@ -84,10 +91,24 @@ db.usuarios.insertMany([
     actualizado_en: ahora
   },
   {
+    nombre: "Operador de Alertas",
+    email: "operador@searchlink.dev",
+    password_hash: "$2a$10$n49g0rHCnVBj86BWuUkq3.XXg0a34P8hP4qTu5fwDpS7Hju0Qet/C",  // "Operador1234"
+    rol: "OPERADOR",
+    ubicacion_precargada: {
+      type: "Point",
+      coordinates: [-58.3816, -34.6037]  // BA centro
+    },
+    activo: true,
+    dispositivos: [],
+    creado_en: ahora,
+    actualizado_en: ahora
+  },
+  {
     nombre: "Ciudadano Belgrano (sin GPS)",
     email: "belgrano@searchlink.dev",
-    password_hash: "$2b$10$placeholder_hash",
-    rol: "ciudadano",
+    password_hash: "$2a$10$sEdbuqwzPF.Fm3xXChy7COoZ6DVO8HIVfOruEuKk.sc7h802RhJWq",  // "Estandar1234"
+    rol: "ESTANDAR",
     ubicacion_precargada: {
       type: "Point",
       coordinates: [-58.4566, -34.5627]  // Belgrano
@@ -101,8 +122,8 @@ db.usuarios.insertMany([
   {
     nombre: "Ciudadano Caballito (con GPS)",
     email: "caballito@searchlink.dev",
-    password_hash: "$2b$10$placeholder_hash",
-    rol: "ciudadano",
+    password_hash: "$2a$10$sEdbuqwzPF.Fm3xXChy7COoZ6DVO8HIVfOruEuKk.sc7h802RhJWq",  // "Estandar1234"
+    rol: "ESTANDAR",
     ubicacion_precargada: {
       type: "Point",
       coordinates: [-58.4400, -34.6190]  // Caballito (domicilio)

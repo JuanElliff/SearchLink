@@ -16,7 +16,7 @@ Este documento describe la versión **post-Paso 1** del plan en `ESTADO.md §D3`
 │ nombre           String                                             │
 │ email            String           (unique)                          │
 │ password_hash    String                                             │
-│ rol              String           ("ciudadano" | "operador")        │
+│ rol              String           ("ADMIN" | "OPERADOR" | "ESTANDAR")│
 │ ubicacion_precargada  GeoJSON Point    (2dsphere normal — siempre)  │
 │ ubicacion_actual      GeoJSON Point    (2dsphere sparse — opcional) │
 │ activo           Boolean                                            │
@@ -169,9 +169,9 @@ Mantener un tercer campo `ubicacion_efectiva` denormalizado, computado en el bac
 
 ---
 
-## 4. Divergencia documentada respecto al slide 8
+## 4. Divergencias documentadas respecto a la presentación (Entrega 1)
 
-Verificado contra el contenido real de la presentación (**Entrega 1, slide 8**). Ese slide modela **3 colecciones**, lo que coincide con el modelo implementado. Hay **dos** divergencias puntuales respecto al código, ambas registradas acá como ajustes justificados (ítem 8 de la rúbrica — "ajustes justificados sobre el diseño original").
+Verificado contra el contenido real de la presentación. Hay **tres** divergencias puntuales respecto al código, todas registradas acá como ajustes justificados (ítem 8 de la rúbrica — "ajustes justificados sobre el diseño original"). Las dos primeras son contra el slide 8 (modelo de datos); la tercera contra el slide 5 (roles).
 
 ### 4.1. Divergencia de NOMBRE: `perfiles_busqueda` → `alertas`
 
@@ -199,7 +199,24 @@ En concreto, lo que la lista plana no soporta y los sub-objetos sí:
 2. **Diagnóstico de pérdida de engagement.** `ultimo_uso` por token distingue un dispositivo activo de uno abandonado, base para futuras políticas (p. ej. dejar de enviar a un token sin actividad en N meses).
 3. **Toggle de notificaciones sin perder el token.** El usuario desactiva push (`activo: false`) sin que el token se borre; al reactivar no hay que re-registrar el device. Con lista plana el único camino es borrar y re-pedir el token al cliente.
 
-Ninguna de estas dos divergencias contradice el slide a nivel conceptual — el slide ya modela 3 colecciones y "el usuario tiene varios tokens FCM" — sólo refinan terminología (4.1) y estructura (4.2) según lo que el path real necesita.
+Ninguna de estas dos divergencias contradice el slide 8 a nivel conceptual — el slide ya modela 3 colecciones y "el usuario tiene varios tokens FCM" — sólo refinan terminología (4.1) y estructura (4.2) según lo que el path real necesita.
+
+### 4.3. Divergencia de ROLES: dos roles → tres roles
+
+| Fuente | Roles del sistema |
+|---|---|
+| Entrega 1, slide 5 | dos roles: "administrador" y "estándar" |
+| Código implementado | tres roles: `ADMIN`, `OPERADOR`, `ESTANDAR` |
+
+**Justificación.** El modelo de dos roles colapsa dos responsabilidades que en el dominio son distintas y conviene separar:
+
+- **ADMIN** — dueño/administrador de la *aplicación*: gestiona cuentas (da de alta operadores y otros admins) y modera avistamientos. **No emite alertas.**
+- **OPERADOR** — autoridad *operativa* que emite y gestiona las alertas (el acto sensible del sistema). No administra cuentas.
+- **ESTANDAR** — ciudadanía: reporta avistamientos y recibe push.
+
+Separar ADMIN de OPERADOR aplica **separación de responsabilidades**: quien gobierna las cuentas no opera el sistema de alertas, y quien opera alertas no gobierna las cuentas. Esto reduce el daño si una credencial se ve comprometida (un ADMIN comprometido no puede disparar alertas falsas; un OPERADOR comprometido no puede crear cuentas privilegiadas) y deja una matriz de autorización auditable. La autorización efectiva vive en `SecurityConfig` (reglas por URL) reforzada con `@PreAuthorize` en los controllers.
+
+**DEUDA.** El slide 5 de la **PRESENTACIÓN FINAL** debe reflejar los tres roles (`ADMIN`, `OPERADOR`, `ESTANDAR`) y la matriz de autorización asociada. La Entrega 1 no se reescribe.
 
 ---
 
@@ -227,7 +244,25 @@ Ver §3.5: dos queries + unión sin duplicados (Opción 1) vs. campo `ubicacion_
 
 ---
 
-## 6. Estado actual y próximos pasos
+## 6. Decisiones de diseño cerradas (autenticación / autorización)
+
+Decisiones tomadas y firmes (no son deuda ni quedan pendientes); se registran para defensa.
+
+### 6.1. `ubicacion_precargada` obligatoria para TODOS los roles
+
+El registro exige `ubicacion_precargada` también para ADMIN y OPERADOR, no sólo para la ciudadanía. Es a propósito: mantiene uniforme el modelo y sostiene el invariante **"todo usuario tiene ubicación"**, sobre el que descansan el índice `2dsphere` y la query de despacho push. Aceptar usuarios sin ubicación abriría una rama de nulos en el path crítico. El costo (pedirle coordenadas a una cuenta administrativa) es menor que romper el invariante.
+
+### 6.2. Doble capa de autorización (URL + `@PreAuthorize`)
+
+La autorización se declara en **dos lugares a propósito**: reglas por URL en `SecurityConfig` (capa de filtros) y `@PreAuthorize` en los métodos privilegiados de los controllers (capa de método). Es **defensa en profundidad**, no redundancia accidental: si un refactor de rutas mueve un endpoint y olvida su regla de URL, la anotación de método sigue cubriéndolo (y viceversa). Se asume el costo de mantener ambas en sincronía. **No simplificar a una sola capa.**
+
+### 6.3. Verificación de cuenta activa en cada request
+
+El filtro JWT carga el usuario por `_id` en cada request autenticada y rechaza si fue desactivado (`activo:false`) o borrado, aunque el token siga vigente. Como no hay refresh token ni blacklist en este alcance, este lookup es el mecanismo que hace que **desactivar una cuenta surta efecto inmediato**. El login también rechaza cuentas inactivas (401 genérico, sin revelar la causa).
+
+---
+
+## 7. Estado actual y próximos pasos
 
 - **Implementado:** modelo de 3 colecciones; dos campos de ubicación (precargada normal + actual sparse); índices, script de init (`mongo/init/01_init.js`) con seeds que cubren ambas ramas del coalesce; lectura de tokens embebidos lista en `AlertaService` (variable `tokensActivos`).
 - **Pendiente:**
