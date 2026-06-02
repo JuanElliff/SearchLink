@@ -29,6 +29,9 @@ out/
 .vscode/settings.json
 .vscode/launch.json
 
+# Configuración local de Claude Code
+.claude/
+
 # macOS
 .DS_Store
 
