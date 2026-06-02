@@ -5,6 +5,7 @@ import ar.edu.uade.searchlink.dto.ErrorResponse.FieldErrorDetail;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -40,11 +41,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    /** Email ya registrado → 409. */
+    /** Email ya registrado → 409 (chequeo de aplicación, antes de tocar la DB). */
     @ExceptionHandler(EmailDuplicadoException.class)
     public ResponseEntity<ErrorResponse> handleEmailDuplicado(EmailDuplicadoException ex,
                                                              HttpServletRequest req) {
         return construir(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), req);
+    }
+
+    /**
+     * Violación de índice único en Mongo → 409. Cierra la ventana de carrera del registro:
+     * si dos requests concurrentes pasan el chequeo de aplicación con el mismo email, el
+     * índice único de la DB rechaza el segundo save y acá lo traducimos a 409 (no 500).
+     */
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateKey(DuplicateKeyException ex,
+                                                            HttpServletRequest req) {
+        return construir(HttpStatus.CONFLICT, "Conflict",
+                "Ya existe un registro con un valor único duplicado", req);
     }
 
     /** Credenciales inválidas → 401 (mensaje genérico). */

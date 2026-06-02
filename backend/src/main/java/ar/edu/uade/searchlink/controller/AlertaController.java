@@ -1,12 +1,15 @@
 package ar.edu.uade.searchlink.controller;
 
-import ar.edu.uade.searchlink.model.Alerta;
-import ar.edu.uade.searchlink.model.EstadoAlerta;
+import ar.edu.uade.searchlink.dto.ActualizarAlertaRequest;
+import ar.edu.uade.searchlink.dto.AlertaResponse;
+import ar.edu.uade.searchlink.dto.CrearAlertaRequest;
 import ar.edu.uade.searchlink.service.AlertaService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,24 +21,32 @@ public class AlertaController {
 
     private final AlertaService alertaService;
 
-    // Emitir/gestionar alertas es sólo del OPERADOR (ver separación de responsabilidades
-    // en SecurityConfig). @PreAuthorize duplica la regla de URL como defensa en profundidad.
+    /**
+     * Emitir una alerta: sólo OPERADOR (ver separación de responsabilidades en SecurityConfig).
+     * `creado_por` se toma del token (Authentication.getName() == userId), NUNCA del body: el
+     * cliente no puede falsear quién emitió la alerta.
+     */
     @PostMapping
     @PreAuthorize("hasRole('OPERADOR')")
-    public ResponseEntity<Alerta> crear(@RequestBody Alerta alerta) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(alertaService.crear(alerta));
+    public ResponseEntity<AlertaResponse> crear(@Valid @RequestBody CrearAlertaRequest req,
+                                                Authentication authentication) {
+        var creada = alertaService.crear(req, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(AlertaResponse.from(creada));
     }
 
     @GetMapping
-    public ResponseEntity<List<Alerta>> listarActivas() {
-        return ResponseEntity.ok(alertaService.listarActivas());
+    public ResponseEntity<List<AlertaResponse>> listarActivas() {
+        List<AlertaResponse> alertas = alertaService.listarActivas().stream()
+                .map(AlertaResponse::from)
+                .toList();
+        return ResponseEntity.ok(alertas);
     }
 
-    @PatchMapping("/{id}/estado")
+    /** Actualización parcial (estado/radio): sólo OPERADOR. */
+    @PatchMapping("/{id}")
     @PreAuthorize("hasRole('OPERADOR')")
-    public ResponseEntity<Alerta> cambiarEstado(
-            @PathVariable String id,
-            @RequestParam EstadoAlerta estado) {
-        return ResponseEntity.ok(alertaService.cambiarEstado(id, estado));
+    public ResponseEntity<AlertaResponse> actualizar(@PathVariable String id,
+                                                     @Valid @RequestBody ActualizarAlertaRequest req) {
+        return ResponseEntity.ok(AlertaResponse.from(alertaService.actualizar(id, req)));
     }
 }

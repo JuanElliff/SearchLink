@@ -40,12 +40,10 @@ class AuthIntegrationTest {
     @Autowired
     private UsuarioService usuarioService;
 
-    // Alerta válida. ubicacion en formato GeoJSON estándar {type, coordinates:[lng,lat]}:
-    // es el que deserializa GeoJsonPoint cuando está activo el GeoJsonModule de Spring Data
-    // (presente en el contexto real de la app).
+    // Alerta válida para CrearAlertaRequest: ubicacion como {latitud, longitud}.
     private static final String ALERTA_JSON =
             "{\"nombreMenor\":\"Menor Test\",\"edad\":8,\"descripcion\":\"desc\","
-            + "\"ubicacion\":{\"type\":\"Point\",\"coordinates\":[-58.3816,-34.6037]},"
+            + "\"ubicacion\":{\"latitud\":-34.6037,\"longitud\":-58.3816},"
             + "\"radioKm\":10.0}";
 
     @BeforeEach
