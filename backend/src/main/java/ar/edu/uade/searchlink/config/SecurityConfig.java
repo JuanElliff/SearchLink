@@ -78,12 +78,11 @@ public class SecurityConfig {
 
                         // ── Avistamientos ─────────────────────────────────────────────
                         // Reportar un avistamiento: cualquier usuario autenticado (la ciudadanía
-                        // ESTANDAR es la que reporta). El endpoint todavía no existe (otro bloque),
-                        // la regla queda lista para cuando se implemente POST /api/avistamientos.
+                        // ESTANDAR es la que reporta).
                         .requestMatchers(HttpMethod.POST, "/api/avistamientos").authenticated()
-                        // Verificar/descartar un avistamiento: OPERADOR y ADMIN (moderación). El
-                        // verbo/path definitivo se decide al implementar el endpoint; regla pendiente:
-                        //   .requestMatchers(HttpMethod.PATCH, "/api/avistamientos/*/estado").hasAnyRole("OPERADOR", "ADMIN")
+                        // Verificar/descartar un avistamiento (moderación): sólo OPERADOR, igual que
+                        // la gestión de alertas (acto operativo de la autoridad, no del ADMIN de la app).
+                        .requestMatchers(HttpMethod.PATCH, "/api/avistamientos/*/estado").hasRole("OPERADOR")
 
                         // ── Lecturas: cualquier autenticado ───────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/alertas/**").authenticated()

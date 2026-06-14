@@ -42,5 +42,11 @@ public class Avistamiento {
     @Field("creado_en")
     private Date creadoEn;
 
-    private boolean verificado;
+    /** Estado de moderación. Nace PENDIENTE; sólo un OPERADOR lo cambia. */
+    @Field("estado_verificacion")
+    private EstadoVerificacion estado;
+
+    /** Nota opcional del operador al verificar/descartar. Nullable. */
+    @Field("comentarios_admin")
+    private String comentariosAdmin;
 }
