@@ -8,6 +8,99 @@
 
 ---
 
+## Sesión 2026-06-14 — cierre
+
+> Sección de retoma más reciente. Cierra tres bloques desde el corte del 2026-06-01. Lo de
+> abajo (## Sesión 2026-06-01 en adelante) queda como referencia histórica.
+
+### Completado y commiteado
+
+- **Avistamientos: bloque cerrado.** CRUD + moderación. Commit **`3b20366`**.
+  - **Migración del modelo:** el campo `verificado` (boolean) se reemplazó por `estado` (enum
+    nuevo `EstadoVerificacion` { PENDIENTE, VERIFICADO, DESCARTADO }, `@Field("estado_verificacion")`,
+    nace PENDIENTE server-side) + nuevo campo `comentariosAdmin` (`@Field("comentarios_admin")`, nullable).
+  - **Endpoints:** `POST /api/avistamientos` (cualquier autenticado; `reportadoPor` server-side desde
+    el token, no del body), `GET /api/avistamientos?alertaId=`, `GET /api/avistamientos/{id}` (404 si no
+    existe), `PATCH /api/avistamientos/{id}/estado` (solo OPERADOR). Alerta inexistente al reportar → 404.
+  - El **PATCH rechaza volver a PENDIENTE** vía `@AssertTrue` en el DTO → 400 uniforme del
+    `GlobalExceptionHandler` (solo admite VERIFICADO/DESCARTADO).
+  - **Authz activada en `SecurityConfig`:** se reemplazó la regla pendiente comentada por
+    `PATCH /api/avistamientos/*/estado` → `hasRole("OPERADOR")`. POST y GET quedan `.authenticated()`.
+  - DTOs propios (`CrearAvistamientoRequest` / `AvistamientoResponse` con ubicación GeoJSON /
+    `CambiarEstadoAvistamientoRequest`); reutiliza `UbicacionRequest` (lat/lng con `@DecimalMin/@DecimalMax`).
+  - 6 tests de integración (flapdoodle) verdes.
+
+- **Dispositivos: bloque cerrado.** Alta/refresh de token FCM. Commit **`0f2c15a`**.
+  - `POST /api/dispositivos` (**path PLANO, sin `{id}`**): el dueño es SIEMPRE el usuario del JWT
+    (`Authentication.getName()` == userId, mismo mecanismo que `creado_por` en Alertas). El cliente
+    nunca manda `userId`. Devuelve **200** (alta o actualización), no 201.
+  - **Upsert idempotente por `fcmToken`** dentro de la lista embebida `Usuario.Dispositivo` (no se
+    modela colección aparte): si el token ya está → refresca `ultimoUso` + `activo=true`, sin duplicar;
+    si no → agrega `{fcmToken, plataforma, activo, registradoEn, ultimoUso}`.
+  - **Guard de lista null** sobre `getDispositivos()` (puede venir null al materializar desde Mongo,
+    mismo guard que `AlertaService`).
+  - DTOs propios (`RegistrarDispositivoRequest` con `fcmToken`/`plataforma` `@NotBlank`, plataforma
+    String libre sin enum; `DispositivoResponse` chico que **no echa el token**).
+  - **No se tocó `SecurityConfig`:** cae en `anyRequest().authenticated()` (cualquier autenticado
+    registra su propio token); sin regla redundante.
+  - 5 tests de integración verdes.
+
+- **FCM real: dispatch implementado y verificado.** `firebase-admin` 9.9.0. Push real al publicar una
+  alerta. *(Código en el working tree, todavía SIN commitear; este `ESTADO.md` se commitea aparte.)*
+  - **FirebaseConfig** (`@PostConstruct`): inicializa `FirebaseApp` UNA vez si `firebase.credentials.path`
+    apunta a un archivo existente (log INFO "FCM habilitado"); si está vacía o el archivo no existe, log
+    WARN y la app **arranca igual** (tolerante: no rompe boot ni tests).
+  - **FcmService**: `sendEachForMulticast` (`sendMulticast` quedó deprecado en 9.9.0, verificado contra
+    el jar). No-op si no hay credencial (FirebaseApp no inicializado) o no hay tokens. `try/catch` total:
+    NUNCA propaga. Devuelve los tokens **UNREGISTERED** (muertos), con null-guard de `getException()`
+    antes de `getMessagingErrorCode()` (solo UNREGISTERED se depura; INVALID_ARGUMENT no).
+  - **AlertaService**: reemplazó el `// TODO`. Tras el envío, depura los tokens muertos con un solo
+    `$pull` (`updateMulti`) sobre `dispositivos.fcm_token` de TODOS los usuarios. Dispatch **SÍNCRONO**
+    dentro de `crear()`, envuelto en `try/catch` para que un fallo de FCM no rompa la creación de la
+    alerta (ya guardada antes del dispatch).
+  - **Credencial** por env var `FIREBASE_CREDENTIALS_PATH` (propiedad `firebase.credentials.path`); el
+    `serviceAccountKey.json` está **gitignoreado** (`*serviceAccountKey*.json` / `firebase-*.json`),
+    fuera del repo.
+  - **Tests:** 5 nuevos (2 unit de `FcmService` sin credencial; 3 de integración `AlertaFcmIntegrationTest`
+    con `FcmService` mockeado: tokens exactos / no-500 ante excepción / `$pull` de muertos). **Suite total:
+    46 verdes**; los **41 previos verdes SIN credencial** → tolerancia confirmada.
+  - **Aprendizaje:** en tests `auto-index-creation=true` (`src/test/resources`), el 2dsphere de
+    `ubicacion_precargada` se **auto-crea** → NO crearlo a mano en el test (causaba `IndexOptionsConflict`,
+    error 85).
+
+### Estado del árbol
+
+`main` **2 commits de código adelante de `origin/main`, sin push**: `3b20366` (avistamientos) →
+`0f2c15a` (dispositivos). El **bloque FCM está implementado y verificado (46 tests verdes) pero su
+commit de código queda pendiente en el working tree**; este `ESTADO.md` se commitea por separado.
+**Suite total: 46 tests verdes.**
+
+### Roadmap restante (orden actualizado)
+
+> **FCM real (Firebase Admin SDK): CERRADO** esta sesión (ver arriba). Ya no está bloqueado.
+
+1. **Frontend** (React / Vite / Tailwind / Leaflet / PWA).
+2. **Docs**: OpenAPI/Swagger, reescritura del README, manual de usuario.
+3. **Unidad IV en papel** (CAP / consistencia / replicación).
+4. **Integración E2E + preparación de la defensa final.**
+
+### Deuda nueva / verificaciones de esta sesión
+
+- **Seguridad del registro y roles — VERIFICADO YA CERRADO (no es deuda abierta).** Se planteó como
+  posible deuda que `POST /api/usuarios` debería forzar ESTANDAR y que habría riesgo de escalada si el
+  registro aceptara un `rol` arbitrario. **El código ya lo previene:** `RegistroUsuarioRequest` no tiene
+  campo `rol` (un body malicioso no puede inyectarlo), `UsuarioService.registrar()` hardcodea
+  `RolUsuario.ESTANDAR`, y la creación de OPERADOR/ADMIN va por `POST /api/usuarios/{operador,admin}`
+  protegidos con `@PreAuthorize("hasRole('ADMIN')")` (cubierto por `AuthIntegrationTest`). Cerrado en
+  el commit `2ecbf7f`. Queda registrado como verificación, no como pendiente.
+
+> Deudas heredadas que siguen abiertas (ver sección 2026-06-01 §"Deudas registradas"): índice
+> `unique sparse` sobre `dispositivos.fcm_token` (deuda explícitamente fuera del scope del bloque de
+> dispositivos), reasignación de token entre usuarios, distancia en query de avistamientos, slide 8 de
+> la presentación final, recuperación de contraseña, combinación de las 2 queries geo.
+
+---
+
 ## Sesión 2026-06-01 — cierre
 
 > Sección de retoma. Lo de abajo (## 0 en adelante) es el relevamiento original del 2026-05-22 y queda como referencia histórica; varios puntos ya se resolvieron (ver acá).
