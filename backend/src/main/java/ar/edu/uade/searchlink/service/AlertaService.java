@@ -8,10 +8,14 @@ import ar.edu.uade.searchlink.model.EstadoAlerta;
 import ar.edu.uade.searchlink.model.Usuario;
 import ar.edu.uade.searchlink.repository.AlertaRepository;
 import lombok.RequiredArgsConstructor;
+import org.bson.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.time.temporal.ChronoUnit;
@@ -23,11 +27,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AlertaService {
 
+    private static final Logger log = LoggerFactory.getLogger(AlertaService.class);
+
     /** Vigencia por defecto de una alerta; al vencer, el índice TTL la elimina. */
     private static final int DIAS_VIGENCIA_DEFAULT = 30;
 
     private final AlertaRepository alertaRepository;
     private final MongoTemplate mongoTemplate;
+    private final FcmService fcmService;
 
     /**
      * Crea una alerta a partir del request del cliente. Los campos server-side se fijan acá,
@@ -100,6 +107,29 @@ public class AlertaService {
                 .filter(t -> t != null && !t.isBlank())
                 .collect(Collectors.toList());
 
-        // TODO: despachar notificaciones FCM a tokensActivos (Paso 3: Firebase Admin SDK)
+        // Dispatch FCM + depuración de tokens muertos. Envuelto para que NINGUNA excepción se
+        // propague a crear(): la alerta ya fue guardada y el POST debe responder OK aunque el push
+        // falle. FcmService.enviarAlerta ya es no-throw; el $pull podría fallar y se aísla acá.
+        try {
+            List<String> muertos = fcmService.enviarAlerta(tokensActivos, alerta);
+            depurarTokensMuertos(muertos);
+        } catch (Exception e) {
+            log.error("Fallo en dispatch/depuración FCM para la alerta {}; la alerta ya fue creada",
+                    alerta.getId(), e);
+        }
+    }
+
+    /**
+     * Depura los tokens FCM muertos (UNREGISTERED) de TODOS los usuarios en una sola operación:
+     * $pull de los sub-documentos de `dispositivos` cuyo `fcm_token` esté en la lista.
+     */
+    private void depurarTokensMuertos(List<String> muertos) {
+        if (muertos == null || muertos.isEmpty()) {
+            return;
+        }
+        Query filtro = new Query(Criteria.where("dispositivos.fcm_token").in(muertos));
+        Update pull = new Update().pull("dispositivos",
+                new Document("fcm_token", new Document("$in", muertos)));
+        mongoTemplate.updateMulti(filtro, pull, Usuario.class);
     }
 }

@@ -69,6 +69,14 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Firebase Admin SDK: envío de push FCM (sendEachForMulticast). SDK standalone,
+             no lo gestiona el BOM de Spring Boot; versión fijada explícitamente. -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.9.0</version>
+        </dependency>
+
         <!-- Reducción de boilerplate (getters, setters, builders) -->
         <dependency>
             <groupId>org.projectlombok</groupId>

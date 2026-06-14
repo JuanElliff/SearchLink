@@ -32,6 +32,10 @@ out/
 # Configuración local de Claude Code
 .claude/
 
+# Credenciales de Firebase / FCM — NUNCA commitear la cuenta de servicio
+*serviceAccountKey*.json
+firebase-*.json
+
 # macOS
 .DS_Store
 
