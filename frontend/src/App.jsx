@@ -4,6 +4,7 @@ import ProtectedRoute from './routes/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import RegistroPage from './pages/RegistroPage'
 import AdminPage from './pages/AdminPage'
+import CrearUsuarioPage from './pages/CrearUsuarioPage'
 import OperadorPage from './pages/OperadorPage'
 import AlertaCrearPage from './pages/AlertaCrearPage'
 import AlertaEditarPage from './pages/AlertaEditarPage'
@@ -67,6 +68,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={['ADMIN']}>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/crear"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <CrearUsuarioPage />
             </ProtectedRoute>
           }
         />
