@@ -6,6 +6,8 @@ import RegistroPage from './pages/RegistroPage'
 import AdminPage from './pages/AdminPage'
 import OperadorPage from './pages/OperadorPage'
 import EstandarHomePage from './pages/EstandarHomePage'
+import AlertaDetallePage from './pages/AlertaDetallePage'
+import ReportarAvistamientoPage from './pages/ReportarAvistamientoPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 export default function App() {
@@ -38,6 +40,23 @@ export default function App() {
           element={
             <ProtectedRoute roles={['ADMIN']}>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Detalle de alerta y reporte: cualquier autenticado */}
+        <Route
+          path="/alerta/:id"
+          element={
+            <ProtectedRoute>
+              <AlertaDetallePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/alerta/:id/avistamiento"
+          element={
+            <ProtectedRoute>
+              <ReportarAvistamientoPage />
             </ProtectedRoute>
           }
         />
