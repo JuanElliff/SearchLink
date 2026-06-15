@@ -3,6 +3,7 @@ package ar.edu.uade.searchlink.service;
 import ar.edu.uade.searchlink.dto.RegistroUsuarioRequest;
 import ar.edu.uade.searchlink.exception.CredencialesInvalidasException;
 import ar.edu.uade.searchlink.exception.EmailDuplicadoException;
+import ar.edu.uade.searchlink.exception.OperacionInvalidaException;
 import ar.edu.uade.searchlink.exception.RecursoNoEncontradoException;
 import ar.edu.uade.searchlink.model.RolUsuario;
 import ar.edu.uade.searchlink.model.Usuario;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -79,6 +81,29 @@ public class UsuarioService {
     public Usuario buscarPorId(String id) {
         return usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado: " + id));
+    }
+
+    /** Devuelve todos los usuarios del sistema (sin paginación, escala demo). Solo para ADMIN. */
+    public List<Usuario> listarTodos() {
+        return usuarioRepository.findAll();
+    }
+
+    /**
+     * Activa o desactiva el flag `activo` de un usuario.
+     *
+     * @param id      id del usuario a modificar
+     * @param activo  nuevo valor del flag
+     * @param adminId id del ADMIN que realiza la operación (del JWT)
+     * @throws RecursoNoEncontradoException si el usuario no existe (→ 404)
+     * @throws OperacionInvalidaException   si un ADMIN intenta desactivarse a sí mismo (→ 400)
+     */
+    public Usuario cambiarActivo(String id, boolean activo, String adminId) {
+        Usuario usuario = buscarPorId(id);
+        if (!activo && id.equals(adminId)) {
+            throw new OperacionInvalidaException("Un ADMIN no puede desactivarse a sí mismo");
+        }
+        usuario.setActivo(activo);
+        return usuarioRepository.save(usuario);
     }
 
     /**

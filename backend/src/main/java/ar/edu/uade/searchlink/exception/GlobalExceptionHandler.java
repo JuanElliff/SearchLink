@@ -82,6 +82,13 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), req);
     }
 
+    /** Operación de negocio inválida (ej. ADMIN intentando desactivarse a sí mismo) → 400. */
+    @ExceptionHandler(OperacionInvalidaException.class)
+    public ResponseEntity<ErrorResponse> handleOperacionInvalida(OperacionInvalidaException ex,
+                                                                 HttpServletRequest req) {
+        return construir(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), req);
+    }
+
     /** Cualquier excepción no controlada → 500. NO se filtra el stacktrace al cliente. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenerica(Exception ex, HttpServletRequest req) {
