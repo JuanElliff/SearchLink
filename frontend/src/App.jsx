@@ -5,6 +5,8 @@ import LoginPage from './pages/LoginPage'
 import RegistroPage from './pages/RegistroPage'
 import AdminPage from './pages/AdminPage'
 import OperadorPage from './pages/OperadorPage'
+import AlertaCrearPage from './pages/AlertaCrearPage'
+import AlertaEditarPage from './pages/AlertaEditarPage'
 import EstandarHomePage from './pages/EstandarHomePage'
 import AlertaDetallePage from './pages/AlertaDetallePage'
 import ReportarAvistamientoPage from './pages/ReportarAvistamientoPage'
@@ -32,6 +34,22 @@ export default function App() {
           element={
             <ProtectedRoute roles={['OPERADOR']}>
               <OperadorPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/operador/nueva"
+          element={
+            <ProtectedRoute roles={['OPERADOR']}>
+              <AlertaCrearPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/operador/alerta/:id/editar"
+          element={
+            <ProtectedRoute roles={['OPERADOR']}>
+              <AlertaEditarPage />
             </ProtectedRoute>
           }
         />
