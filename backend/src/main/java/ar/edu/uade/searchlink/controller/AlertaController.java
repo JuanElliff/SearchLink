@@ -42,6 +42,12 @@ public class AlertaController {
         return ResponseEntity.ok(alertas);
     }
 
+    /** Detalle de una alerta por id (cualquier estado). Cualquier autenticado. 404 si no existe. */
+    @GetMapping("/{id}")
+    public ResponseEntity<AlertaResponse> obtener(@PathVariable String id) {
+        return ResponseEntity.ok(AlertaResponse.from(alertaService.obtenerPorId(id)));
+    }
+
     /** Actualización parcial (estado/radio): sólo OPERADOR. */
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('OPERADOR')")

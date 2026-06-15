@@ -70,6 +70,15 @@ public class AlertaService {
         return alertaRepository.findByEstado(EstadoAlerta.ACTIVA);
     }
 
+    /**
+     * Detalle de una alerta por id, sin importar su estado (activa/resuelta/cancelada): el
+     * deep-link del push debe poder abrir la alerta aunque ya no esté activa. 404 si no existe.
+     */
+    public Alerta obtenerPorId(String id) {
+        return alertaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Alerta no encontrada: " + id));
+    }
+
     /** Actualización parcial: aplica sólo los campos no nulos del request. */
     public Alerta actualizar(String id, ActualizarAlertaRequest req) {
         Alerta alerta = alertaRepository.findById(id)

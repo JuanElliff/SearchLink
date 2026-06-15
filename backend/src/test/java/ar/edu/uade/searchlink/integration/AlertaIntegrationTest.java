@@ -1,6 +1,8 @@
 package ar.edu.uade.searchlink.integration;
 
 import ar.edu.uade.searchlink.dto.RegistroUsuarioRequest;
+import ar.edu.uade.searchlink.model.Alerta;
+import ar.edu.uade.searchlink.model.EstadoAlerta;
 import ar.edu.uade.searchlink.model.Usuario;
 import ar.edu.uade.searchlink.repository.AlertaRepository;
 import ar.edu.uade.searchlink.repository.UsuarioRepository;
@@ -16,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -137,5 +140,62 @@ class AlertaIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[*].campo",
                         org.hamcrest.Matchers.hasItem("ubicacion.latitud")));
+    }
+
+    // ─────────────────────────── GET /api/alertas/{id} (detalle) ───────────────────────────
+
+    private String crearAlertaYObtenerId() throws Exception {
+        var body = Map.of(
+                "nombreMenor", "Juan Niño",
+                "ubicacion", ubicacion(-34.6037, -58.3816),
+                "radioKm", 10.0);
+        String resp = mvc.perform(post("/api/alertas").header("Authorization", "Bearer " + tokenOperador)
+                        .contentType(MediaType.APPLICATION_JSON).content(json(body)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return om.readTree(resp).get("id").asText();
+    }
+
+    @Test
+    void obtenerPorIdExistenteDa200ConCampos() throws Exception {
+        String id = crearAlertaYObtenerId();
+
+        mvc.perform(get("/api/alertas/" + id).header("Authorization", "Bearer " + tokenOperador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.nombreMenor").value("Juan Niño"))
+                .andExpect(jsonPath("$.estado").value("ACTIVA"))
+                .andExpect(jsonPath("$.ubicacion.type").value("Point"))
+                .andExpect(jsonPath("$.ubicacion.coordinates[0]").value(-58.3816)) // [lng, lat]
+                .andExpect(jsonPath("$.ubicacion.coordinates[1]").value(-34.6037));
+    }
+
+    @Test
+    void obtenerPorIdDevuelveAlertaNoActivaTambien() throws Exception {
+        String id = crearAlertaYObtenerId();
+        // Marca la alerta como RESUELTA directo en el repo; el detalle debe seguir accesible
+        // (deep-link del push abre la alerta aunque ya no esté activa).
+        Alerta alerta = alertaRepository.findById(id).orElseThrow();
+        alerta.setEstado(EstadoAlerta.RESUELTA);
+        alertaRepository.save(alerta);
+
+        mvc.perform(get("/api/alertas/" + id).header("Authorization", "Bearer " + tokenOperador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.estado").value("RESUELTA"));
+    }
+
+    @Test
+    void obtenerPorIdInexistenteDa404() throws Exception {
+        mvc.perform(get("/api/alertas/no-existe-9999").header("Authorization", "Bearer " + tokenOperador))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void obtenerPorIdSinTokenDa401() throws Exception {
+        String id = crearAlertaYObtenerId();
+        mvc.perform(get("/api/alertas/" + id))
+                .andExpect(status().isUnauthorized());
     }
 }
