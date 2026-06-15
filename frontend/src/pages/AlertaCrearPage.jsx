@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import LocationPicker from '../components/LocationPicker'
+import Field from '../components/ui/Field'
 
 function validar({ nombreMenor, radioKm, ubicacion }) {
   const e = {}
@@ -17,12 +18,17 @@ export default function AlertaCrearPage() {
   const [nombreMenor, setNombreMenor]   = useState('')
   const [edad, setEdad]                 = useState('')
   const [descripcion, setDescripcion]   = useState('')
-  const [fotoUrl, setFotoUrl]           = useState('')
+  const [foto, setFoto]                 = useState(null)
   const [ubicacion, setUbicacion]       = useState(null)
   const [radioKm, setRadioKm]           = useState('')
   const [errores, setErrores]           = useState({})
   const [errorServidor, setErrorServidor] = useState(null)
   const [enviando, setEnviando]         = useState(false)
+
+  // Preview local del archivo elegido, derivado de `foto`. El object URL se revoca al
+  // cambiar de archivo o al desmontar (cleanup del effect), para no fugar memoria.
+  const previewUrl = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto])
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
   const onSubmit = async (ev) => {
     ev.preventDefault()
@@ -33,6 +39,16 @@ export default function AlertaCrearPage() {
 
     setEnviando(true)
     try {
+      // Si hay foto, se sube PRIMERO (endpoint separado) y se obtiene su URL pública.
+      // El create sigue mandando fotoUrl en el JSON de siempre.
+      let fotoUrl = null
+      if (foto) {
+        const fd = new FormData()
+        fd.append('archivo', foto)
+        const subida = await apiFetch('/api/uploads/alertas', { method: 'POST', body: fd })
+        fotoUrl = subida.url
+      }
+
       // edad es Integer opcional: cadena vacía → null; de lo contrario entero.
       // ubicacion va ANIDADA ({latitud, longitud}), igual que el registro y el avistamiento.
       await apiFetch('/api/alertas', {
@@ -41,7 +57,7 @@ export default function AlertaCrearPage() {
           nombreMenor:  nombreMenor.trim(),
           edad:         edad !== '' ? parseInt(edad, 10) : null,
           descripcion:  descripcion.trim() || null,
-          fotoUrl:      fotoUrl.trim()     || null,
+          fotoUrl,
           ubicacion:    { latitud: ubicacion.latitud, longitud: ubicacion.longitud },
           radioKm:      Number(radioKm),
         },
@@ -64,10 +80,10 @@ export default function AlertaCrearPage() {
       </div>
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
-        <Campo id="nombreMenor" label="Nombre del menor" required
+        <Field id="nombreMenor" label="Nombre del menor" required
           value={nombreMenor} onChange={setNombreMenor} error={errores.nombreMenor} />
 
-        <Campo id="edad" label="Edad" type="number" min="0"
+        <Field id="edad" label="Edad" type="number" min="0"
           value={edad} onChange={setEdad} hint="Opcional" />
 
         <div>
@@ -79,8 +95,16 @@ export default function AlertaCrearPage() {
           />
         </div>
 
-        <Campo id="fotoUrl" label="URL de foto" value={fotoUrl} onChange={setFotoUrl}
-          hint="Opcional. El upload de archivos es un bloque posterior." />
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="foto">Foto</label>
+          <input id="foto" type="file" accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm text-slate-600 file:mr-3 file:rounded file:border-0 file:bg-sky-50 file:px-4 file:py-2 file:text-sky-700 hover:file:bg-sky-100" />
+          <p className="mt-1 text-xs text-slate-400">Opcional. JPEG, PNG o WebP, hasta 5 MB.</p>
+          {previewUrl && (
+            <img src={previewUrl} alt="Vista previa" className="mt-2 max-h-48 rounded object-cover" />
+          )}
+        </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium">
@@ -90,7 +114,7 @@ export default function AlertaCrearPage() {
           {errores.ubicacion && <p className="mt-1 text-sm text-red-600">{errores.ubicacion}</p>}
         </div>
 
-        <Campo id="radioKm" label="Radio de búsqueda (km)" type="number" min="0.1" step="0.5"
+        <Field id="radioKm" label="Radio de búsqueda (km)" type="number" min="0.1" step="0.5"
           required value={radioKm} onChange={setRadioKm} error={errores.radioKm} />
 
         {errorServidor && <p className="text-sm text-red-600">{errorServidor}</p>}
@@ -106,22 +130,6 @@ export default function AlertaCrearPage() {
           </button>
         </div>
       </form>
-    </div>
-  )
-}
-
-function Campo({ id, label, type = 'text', required, value, onChange, error, hint, ...rest }) {
-  return (
-    <div>
-      <label className="mb-1 block text-sm font-medium" htmlFor={id}>
-        {label}{required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input id={id} type={type} value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none"
-        {...rest} />
-      {hint  && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

@@ -13,14 +13,21 @@ export function clearToken() {
 }
 
 /**
- * Wrapper delgado sobre fetch. Apunta a API_BASE_URL, serializa JSON y, si `auth` está
- * activo, adjunta el JWT del localStorage como `Authorization: Bearer <token>`.
+ * Wrapper delgado sobre fetch. Apunta a API_BASE_URL y, si `auth` está activo, adjunta el JWT
+ * del localStorage como `Authorization: Bearer <token>`.
+ *
+ * Body JSON por default. Si `body` es un FormData (upload de archivos), NO se setea
+ * Content-Type ni se serializa: el browser pone `multipart/form-data` con su boundary y manda
+ * el FormData tal cual. El JWT se adjunta igual en ambos casos.
  *
  * Ante respuesta no-2xx, lanza un Error con `.status` y `.body`, usando el `message` del
  * ErrorResponse uniforme del backend cuando está disponible.
  */
 export async function apiFetch(path, { method = 'GET', body, auth = true, headers = {} } = {}) {
-  const finalHeaders = { 'Content-Type': 'application/json', ...headers }
+  const esFormData = body instanceof FormData
+  const finalHeaders = esFormData
+    ? { ...headers }
+    : { 'Content-Type': 'application/json', ...headers }
   let conJwt = false
   if (auth) {
     const token = getToken()
@@ -33,7 +40,7 @@ export async function apiFetch(path, { method = 'GET', body, auth = true, header
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: finalHeaders,
-    body: body != null ? JSON.stringify(body) : undefined,
+    body: esFormData ? body : (body != null ? JSON.stringify(body) : undefined),
   })
 
   const text = await res.text()

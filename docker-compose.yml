@@ -20,6 +20,10 @@ services:
     environment:
       - MONGO_URI=mongodb://mongodb:27017/searchlink
       - PORT=8080
+    volumes:
+      # Fotos subidas: persisten entre recreaciones del contenedor. El WORKDIR del
+      # runtime es /app (ver Dockerfile) y la carpeta default de uploads es relativa.
+      - uploads-data:/app/uploads
     depends_on:
       - mongodb
     networks:
@@ -28,6 +32,7 @@ services:
 
 volumes:
   mongo-data:
+  uploads-data:
 
 networks:
   searchlink-net:

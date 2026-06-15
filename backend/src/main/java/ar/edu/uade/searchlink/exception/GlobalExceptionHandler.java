@@ -12,6 +12,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.List;
 
@@ -80,6 +81,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNoEncontrado(RecursoNoEncontradoException ex,
                                                             HttpServletRequest req) {
         return construir(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), req);
+    }
+
+    /** Foto subida que supera el límite de tamaño (5MB, ver application.properties) → 413. */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleTamanoExcedido(MaxUploadSizeExceededException ex,
+                                                              HttpServletRequest req) {
+        return construir(HttpStatus.PAYLOAD_TOO_LARGE, "Payload Too Large",
+                "La foto supera el tamaño máximo permitido (5MB)", req);
     }
 
     /** Operación de negocio inválida (ej. ADMIN intentando desactivarse a sí mismo) → 400. */

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import LocationPicker from '../components/LocationPicker'
@@ -7,11 +7,17 @@ export default function ReportarAvistamientoPage() {
   const { id: alertaId } = useParams()
   const navigate = useNavigate()
   const [descripcion, setDescripcion] = useState('')
+  const [foto, setFoto] = useState(null)
   const [ubicacion, setUbicacion] = useState(null)
   const [errores, setErrores] = useState({})
   const [errorServidor, setErrorServidor] = useState(null)
   const [exito, setExito] = useState(false)
   const [enviando, setEnviando] = useState(false)
+
+  // Preview local del archivo elegido, derivado de `foto`. El object URL se revoca al
+  // cambiar de archivo o al desmontar (cleanup del effect), para no fugar memoria.
+  const previewUrl = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto])
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
   const validar = () => {
     const e = {}
@@ -29,15 +35,23 @@ export default function ReportarAvistamientoPage() {
 
     setEnviando(true)
     try {
+      // Si hay foto, se sube PRIMERO (endpoint separado) y se obtiene su URL pública.
+      let fotoUrl = null
+      if (foto) {
+        const fd = new FormData()
+        fd.append('archivo', foto)
+        const subida = await apiFetch('/api/uploads/avistamientos', { method: 'POST', body: fd })
+        fotoUrl = subida.url
+      }
+
       // La ubicación va ANIDADA ({latitud, longitud}), no plana.
-      // fotoUrl: null (upload es un bloque aparte).
       await apiFetch('/api/avistamientos', {
         method: 'POST',
         body: {
           alertaId,
           descripcion: descripcion.trim(),
           ubicacion: { latitud: ubicacion.latitud, longitud: ubicacion.longitud },
-          fotoUrl: null,
+          fotoUrl,
         },
       })
       setExito(true)
@@ -97,6 +111,19 @@ export default function ReportarAvistamientoPage() {
           <LocationPicker value={ubicacion} onChange={setUbicacion} />
           {errores.ubicacion && (
             <p className="mt-1 text-sm text-red-600">{errores.ubicacion}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="foto">Foto</label>
+          <input id="foto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"
+            onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm text-slate-600 file:mr-3 file:rounded file:border-0 file:bg-sky-50 file:px-4 file:py-2 file:text-sky-700 hover:file:bg-sky-100" />
+          <p className="mt-1 text-xs text-slate-400">
+            Opcional. Podés tomar una foto en el momento. JPEG, PNG o WebP, hasta 5 MB.
+          </p>
+          {previewUrl && (
+            <img src={previewUrl} alt="Vista previa" className="mt-2 max-h-48 rounded object-cover" />
           )}
         </div>
 

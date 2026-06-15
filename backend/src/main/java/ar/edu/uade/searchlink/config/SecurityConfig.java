@@ -59,6 +59,8 @@ public class SecurityConfig {
                         // ── Públicos ──────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()   // registro (fuerza ESTANDAR)
                         .requestMatchers(HttpMethod.POST, "/api/sesiones").permitAll()    // login
+                        // Fotos subidas: lectura pública (contenido de difusión, tipo Alerta Sofía).
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
 
                         // ── Gestión de usuarios: sólo ADMIN ───────────────────────────
                         // El ADMIN es quien administra cuentas: da de alta operadores y otros admins.
@@ -84,6 +86,12 @@ public class SecurityConfig {
                         // la gestión de alertas (acto operativo de la autoridad, no del ADMIN de la app).
                         .requestMatchers(HttpMethod.PATCH, "/api/avistamientos/*/estado").hasRole("OPERADOR")
 
+                        // ── Upload de fotos (endpoints separados, ver UploadController) ──
+                        // Misma autorización que el create al que alimentan: subir foto de alerta es
+                        // un acto del OPERADOR; subir foto de avistamiento, de cualquier autenticado.
+                        .requestMatchers(HttpMethod.POST, "/api/uploads/alertas").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/uploads/avistamientos").authenticated()
+
                         // ── Lecturas: cualquier autenticado ───────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/alertas/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/avistamientos/**").authenticated()
@@ -107,11 +115,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /** CORS para el frontend de desarrollo (Vite en :5173). */
+    /** CORS para el frontend de desarrollo (Vite en :5173 y :5174). */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

@@ -6,6 +6,9 @@
 # Datos persistentes de MongoDB (volumen local si se usa bind mount)
 mongo-data/
 
+# Fotos subidas en runtime (local). En contenedor van a un volumen Docker.
+uploads/
+
 # Maven
 target/
 !.mvn/wrapper/maven-wrapper.jar
