@@ -7,6 +7,7 @@ import AdminPage from './pages/AdminPage'
 import OperadorPage from './pages/OperadorPage'
 import AlertaCrearPage from './pages/AlertaCrearPage'
 import AlertaEditarPage from './pages/AlertaEditarPage'
+import ModerarAvistamientosPage from './pages/ModerarAvistamientosPage'
 import EstandarHomePage from './pages/EstandarHomePage'
 import AlertaDetallePage from './pages/AlertaDetallePage'
 import ReportarAvistamientoPage from './pages/ReportarAvistamientoPage'
@@ -50,6 +51,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={['OPERADOR']}>
               <AlertaEditarPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/operador/alerta/:id/avistamientos"
+          element={
+            <ProtectedRoute roles={['OPERADOR']}>
+              <ModerarAvistamientosPage />
             </ProtectedRoute>
           }
         />

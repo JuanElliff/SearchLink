@@ -69,6 +69,12 @@ export default function OperadorPage() {
               >
                 Editar
               </button>
+              <button
+                onClick={() => navigate(`/operador/alerta/${a.id}/avistamientos`)}
+                className="shrink-0 rounded border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Moderar
+              </button>
             </div>
           ))}
         </div>
