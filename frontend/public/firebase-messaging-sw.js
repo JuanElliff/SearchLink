@@ -6,11 +6,11 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js')
 
 firebase.initializeApp({
-  apiKey: 'VITE_FIREBASE_API_KEY',
-  authDomain: 'VITE_FIREBASE_AUTH_DOMAIN',
-  projectId: 'VITE_FIREBASE_PROJECT_ID',
-  messagingSenderId: 'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  appId: 'VITE_FIREBASE_APP_ID',
+  apiKey: 'AIzaSyCKXNCMRYSmjwmLMlU7D73ftB-DYOnJM9w',
+  authDomain: 'searchlink-firebase.firebaseapp.com',
+  projectId: 'searchlink-firebase',
+  messagingSenderId: '292713464775',
+  appId: '1:292713464775:web:015b01c7253d4386d58fe2',
 })
 
 const messaging = firebase.messaging()

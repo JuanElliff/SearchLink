@@ -92,7 +92,10 @@ export default function Layout() {
         <Outlet />
       </main>
       {toast && (
-        <div className="fixed right-4 top-4 z-50 max-w-xs rounded-lg bg-slate-900 p-4 text-white shadow-lg">
+        <div
+          className="fixed right-4 top-4 z-50 max-w-xs cursor-pointer rounded-lg bg-slate-900 p-4 text-white shadow-lg"
+          onClick={() => setToast(null)}
+        >
           <p className="font-semibold">{toast.title}</p>
           {toast.body && <p className="mt-1 text-sm text-slate-300">{toast.body}</p>}
         </div>
