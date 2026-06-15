@@ -61,6 +61,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/sesiones").permitAll()    // login
                         // Fotos subidas: lectura pública (contenido de difusión, tipo Alerta Sofía).
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        // Documentación OpenAPI / Swagger UI: acceso público.
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
 
                         // ── Gestión de usuarios: sólo ADMIN ───────────────────────────
                         // El ADMIN es quien administra cuentas: da de alta operadores y otros admins.
