@@ -8,6 +8,124 @@
 
 ---
 
+## Sesión 2026-06-15 — cierre
+
+> Sección más reciente. Cierra el frontend completo (3 roles) y 3 micro-bloques de backend.
+> Lo anterior (2026-06-14 en adelante) queda como referencia histórica.
+
+### Log completo del repositorio (fuente de verdad)
+
+```
+7350432 feat(frontend): panel ADMIN — gestión de usuarios (lista, toggle activo, crear OPERADOR/ADMIN)
+b0908f0 feat: gestión de usuarios ADMIN (listar + activar/desactivar con guard anti-lockout)
+2ed6003 feat(frontend): OPERADOR moderación de avistamientos (mapa + verificar/descartar)
+81d78e2 feat(frontend): panel OPERADOR — lista, crear y editar alertas
+5820f24 feat(frontend): pantallas ESTANDAR (mapa, detalle, reportar avistamiento)
+e74afc0 feat: GET /api/alertas/{id} (detalle por id, cualquier estado)
+052baf8 feat(frontend): scaffolding + auth (Vite/React/Tailwind/Leaflet/PWA, routing por rol)
+51b2452 feat: dispatch FCM real al crear alerta (Firebase Admin SDK, limpieza de tokens UNREGISTERED)
+c9a4ed8 docs(estado): cerrar avistamientos + dispositivos + FCM, actualizar roadmap
+0f2c15a feat: alta de token FCM (POST /api/dispositivos, upsert idempotente)
+3b20366 feat: avistamientos CRUD + verificar/descartar (estado enum, authz OPERADOR)
+205ed45 chore: ignorar .claude/ (config local de Claude Code)
+e88b51d docs(estado): registrar cierre de sesión 2026-06-01 en ESTADO.md
+ade23f7 Alertas: DTOs propios + creado_por server-side + DuplicateKey 409
+2ecbf7f Auth: JWT + bcrypt + 3 roles (ADMIN/OPERADOR/ESTANDAR)
+a6887c5 Docs: cerrar pendientes del Paso 1
+b109f42 Refactor modelo: 3 colecciones + ubicacion precargada/actual
+6129edb Initial commit: SearchLink backend skeleton + project docs
+```
+
+### Completado y commiteado esta sesión
+
+**Backend — micro-bloques post-FCM:**
+
+- **`GET /api/alertas/{id}` — detalle por id, cualquier estado.** Commit **`e74afc0`**.
+  - Devuelve la alerta sin filtrar por estado (`ACTIVA`/`RESUELTA`/`CANCELADA`): el deep-link del push
+    FCM debe poder abrirla aunque ya no esté activa.
+  - Authz: `GET /api/alertas/**` ya estaba `.authenticated()` en `SecurityConfig`; no se tocó.
+  - Tests: existente 200 + campos, alerta RESUELTA sigue 200, inexistente 404, sin token 401.
+
+- **`GET /api/usuarios` — listar todos (ADMIN-only).** Commit **`b0908f0`**.
+  - Reutiliza `UsuarioResponse` (id, nombre, email, rol, activo). Sin paginación (escala demo).
+  - `@PreAuthorize("hasRole('ADMIN')")`.
+
+- **`PATCH /api/usuarios/{id}/activo` — toggle activo (ADMIN-only).** Commit **`b0908f0`**.
+  - Body `{ "activo": Boolean }` (boxed + `@NotNull`). Devuelve `UsuarioResponse` actualizado.
+  - **Guard anti-lockout:** un ADMIN no puede desactivarse a sí mismo → `OperacionInvalidaException`
+    → 400 uniforme via `GlobalExceptionHandler` (excepción + handler nuevos).
+  - 404 si el usuario no existe. Tests: listar como ADMIN 200, OPERADOR/ESTANDAR 403,
+    desactivar otro 200, no-ADMIN 403, id inexistente 404, auto-desactivación 400.
+  - **Suite total backend: 57 tests verdes.**
+
+**Frontend — Vite 8 / React 19 / Tailwind 3 / react-leaflet 5 / vite-plugin-pwa:**
+
+> Construido contra el contrato del backend (DTOs/enums verificados en código Java).
+> **NUNCA se corrió contra el backend real** (docker compose no estaba levantado durante el
+> desarrollo). Pendiente: verificación en vivo (ver Roadmap).
+
+- **Scaffold + auth.** Commit **`052baf8`**.
+  - `AuthContext`: login `POST /api/sesiones`, guarda `{ token, usuario }` en `localStorage`.
+    Rol sale del `LoginResponse.usuario.rol` (sin llamada extra).
+  - `api/client.js`: wrapper fetch con JWT automático. **Auto-logout en 401** solo si el request
+    llevaba `Authorization` (no dispara en login/registro).
+  - `ProtectedRoute`: sin sesión → `/login`; rol no permitido → home del propio rol.
+  - `LocationPicker`: Leaflet, pin por click o GPS.
+  - PWA: manifest + service worker (instalable).
+
+- **ESTANDAR.** Commit **`5820f24`**.
+  - Mapa de alertas activas (`GET /api/alertas`). GeoJSON `[lng,lat]` invertido a `[lat,lng]` para
+    Leaflet en todos los mapas.
+  - Detalle `/alerta/:id` (`GET /api/alertas/{id}`): info + mapa con `Circle` de radioKm. Botón
+    "Reportar avistamiento" solo si `estado === 'ACTIVA'`.
+  - Reportar `/alerta/:id/avistamiento`: `POST /api/avistamientos` con ubicación **anidada**
+    `{latitud, longitud}` y `fotoUrl: null` (upload diferido).
+
+- **OPERADOR-A.** Commit **`81d78e2`**.
+  - Lista de alertas activas con "Crear" y "Editar" por item.
+  - Crear: `POST /api/alertas`, ubicación **anidada**, `edad` → `parseInt` o `null`.
+  - Editar `/operador/alerta/:id/editar`: solo `estado` y `radioKm` (lo único que acepta
+    `ActualizarAlertaRequest`), pre-rellenos desde `GET /api/alertas/{id}`.
+
+- **OPERADOR-B.** Commit **`2ed6003`**.
+  - Moderación `/operador/alerta/:id/avistamientos`: fetch paralelo alerta + avistamientos.
+    Mapa con marker+Circle de alerta y markers por avistamiento (null-guard sobre `ubicacion`).
+    Lista con badge `EstadoVerificacion`, acciones "Verificar"/"Descartar" para PENDIENTE.
+    `PATCH /api/avistamientos/{id}/estado` con `{nuevoEstado, comentariosAdmin}`. Nunca manda
+    `PENDIENTE` (rechazado por `@AssertTrue` del backend). Actualización local sin re-fetch.
+
+- **ADMIN.** Commits **`b0908f0`** (backend) + **`7350432`** (frontend).
+  - Lista `GET /api/usuarios`, badges de rol/activo.
+  - Toggle activo → `PATCH /api/usuarios/{id}/activo { activo: !actual }`. Actualización local.
+    Guard en UI: botón deshabilitado cuando `esPropioAdmin && u.activo` (replica el guard del
+    backend). Si llega un 400, muestra el mensaje inline.
+  - Crear usuario `/admin/crear`: selector OPERADOR|ADMIN, body **plano** `{nombre, email,
+    password, latitud, longitud}` (distinto de alertas/avistamientos que van anidados).
+
+**Decisiones de contrato frontend → backend (puntos de atención para la verificación en vivo):**
+- GeoJSON `coordinates = [lng, lat]` → se invierte a `[lat, lng]` para Leaflet en todos los mapas.
+- Body de ubicación: **plano** en `POST /api/usuarios` y `POST /api/usuarios/{operador,admin}` (top-level `latitud`/`longitud`); **anidado** `{ubicacion:{latitud,longitud}}` en alertas y avistamientos.
+- `fotoUrl` en alertas y avistamientos: URL string (no upload). Upload diferido a un bloque posterior.
+- `edad` en alertas: `parseInt(string, 10)` o `null` (nunca string vacío).
+
+### Estado del árbol
+
+`main` con **12 commits no pusheados** (desde `3b20366`). Working tree limpio. **57 tests
+backend verdes. Build frontend OK (446 kB JS + PWA). Lint limpio.** Verificación E2E: pendiente.
+
+### Roadmap restante (orden de prioridad)
+
+1. **VERIFICACIÓN EN VIVO** — `docker compose up --build` + login real + flujo completo de cada rol.
+   **Prioridad máxima**: es el primer momento en que el frontend toca el backend real. Cualquier
+   divergencia de contrato (CORS, encoding, campos inesperados) se descubre aquí.
+2. **FCM en el frontend** — registrar token FCM del browser (`POST /api/dispositivos`) al hacer
+   login. Requiere `firebaseConfig` del proyecto Firebase y una VAPID key para el SW.
+3. **Docs**: OpenAPI/Swagger (`springdoc-openapi`), reescritura del `README.md`, manual de usuario.
+4. **Unidad IV en papel** (CAP / consistencia / replicación en `DATABASE_DESIGN.md`).
+5. **E2E + preparación de la defensa final.**
+
+---
+
 ## Sesión 2026-06-14 — cierre
 
 > Sección de retoma más reciente. Cierra tres bloques desde el corte del 2026-06-01. Lo de
