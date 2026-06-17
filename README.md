@@ -1,190 +1,180 @@
 # SearchLink
 
-Plataforma web de alertas geolocalizadas para la búsqueda de personas desaparecidas.
+Plataforma web de alertas de personas desaparecidas. Cuando un operador publica una alerta, el
+sistema localiza por consulta geoespacial (`$nearSphere` / índice `2dsphere`) a los usuarios
+registrados dentro de un radio configurable y les dispara una notificación push (estilo Alerta
+Sofía). Los ciudadanos pueden reportar avistamientos georreferenciados.
 
-**TP Integrador — Ingeniería de Datos II · UADE**
-Materia: Bases de Datos NoSQL — Arquitectura y Modelado.
-
----
-
-## Tabla de contenidos
-
-1. [Problema](#problema)
-2. [Solución](#solución)
-3. [Stack](#stack)
-4. [Modelo de datos](#modelo-de-datos)
-5. [Estructura del repositorio](#estructura-del-repositorio)
-6. [Cómo levantar el proyecto](#cómo-levantar-el-proyecto)
-7. [Estado de implementación](#estado-de-implementación)
-8. [Documentación adicional](#documentación-adicional)
-
----
-
-## Problema
-
-En Argentina, la difusión de alertas de personas desaparecidas depende de canales fragmentados (redes sociales, medios tradicionales, mensajería informal). Las primeras horas son críticas y no existe un canal estructurado que (a) centralice la información, (b) notifique de forma inmediata a usuarios cercanos al punto de desaparición, y (c) reciba avistamientos ciudadanos georreferenciados.
-
----
-
-## Solución
-
-SearchLink centraliza la emisión de alertas y los reportes de avistamiento. Cuando un operador publica una alerta, el sistema localiza por consulta geoespacial (`$nearSphere`, índice `2dsphere`) a los usuarios registrados dentro de un radio configurable y dispara notificaciones push vía Firebase Cloud Messaging.
-
-```
-Operador carga alerta
-        │
-        ▼  POST /api/alertas
-Backend persiste en MongoDB (GeoJSON Point + TTL)
-        │
-        ▼  $nearSphere sobre usuarios (radio configurable)
-Backend obtiene tokens FCM de los usuarios cercanos
-        │
-        ▼  Firebase Cloud Messaging
-Dispositivos del área reciben push
-        │
-        ▼
-Ciudadano puede reportar avistamiento (POST /api/avistamientos)
-```
+**TP Integrador — Ingeniería de Datos II · UADE.** Pensado para correr en un entorno de desarrollo
+local.
 
 ---
 
 ## Stack
 
-| Capa | Tecnología | Notas |
-|---|---|---|
-| Backend | **Java 21 + Spring Boot 3.3.4** | API REST. `spring-boot-starter-web`, `spring-boot-starter-data-mongodb`, Lombok. |
-| Base de datos | **MongoDB 7** | Instancia única (no replica set en MVP). Índices `2dsphere` para consultas geoespaciales y TTL sobre alertas vencidas. |
-| Notificaciones | **Firebase Cloud Messaging** | Único servicio externo (en la nube). En implementación; ver §Estado. |
-| Frontend | **React** (a construir) | Mínimo para demostrar el flujo E2E en P2; PWA / Tailwind / Leaflet quedan para el Final. |
-| Infraestructura local | **Docker Compose** | Convenience para desarrollo, no parte de la arquitectura. |
-
-Java 21 está fijado en `backend/pom.xml`. El proyecto no usa `mvnw` todavía: requiere Maven instalado para correr fuera de Docker (ver §Cómo levantar).
+| Capa | Tecnología |
+|---|---|
+| Backend | **Spring Boot 3.3.4 · Java 21** (Spring Web, Spring Data MongoDB, Spring Security, Bean Validation, Lombok) |
+| Base de datos | **MongoDB 7** (instancia única; índices `2dsphere` + TTL) |
+| Notificaciones | **Firebase Cloud Messaging** (push) |
+| Frontend | **React 19 · Vite · Tailwind · react-leaflet · PWA** |
+| Documentación API | **springdoc-openapi / Swagger UI** |
 
 ---
 
-## Modelo de datos
+## Requisitos previos
 
-Tres colecciones en la base `searchlink`:
-
-| Colección | Propósito | Índices |
-|---|---|---|
-| `usuarios` | Cuentas (ciudadano / operador / admin), ubicación declarada y tokens FCM de los dispositivos del usuario (embebidos como array). | `2dsphere` sobre `ubicacion`; único sobre `email`. |
-| `alertas` | Alerta publicada: datos del desaparecido, geolocalización, estado, expiración. | `2dsphere` sobre `ubicacion`; sobre `estado`; TTL sobre `expira_en`. |
-| `avistamientos` | Reporte ciudadano asociado a una alerta. | `2dsphere` sobre `ubicacion`; sobre `alerta_id`; sobre `creado_en` desc. |
-
-Justificación detallada de modelado, índices, embedding vs referencia, y comparación con otras bases NoSQL en [`DATABASE_DESIGN.md`](DATABASE_DESIGN.md).
-
-> Nota sobre el código actual: hoy el backend tiene una cuarta colección `dispositivos` separada. Se va a fusionar en `usuarios` (tokens FCM embebidos) en el primer paso del plan de implementación de P2 — ver §Estado y [`ESTADO.md`](ESTADO.md) §D1.
+- **Docker + Docker Compose** — para el arranque recomendado.
+- **Node + npm** — para el frontend. El repo **no fija** una versión de Node (sin `engines` en
+  `package.json`, sin `.nvmrc`); se usó una versión de Node compatible con Vite.
+- **JDK 21** — **solo** si se corre el backend **sin Docker** (ver más abajo).
 
 ---
 
-## Estructura del repositorio
+## Arranque rápido (con Docker)
 
-```
-SearchLink/
-├── backend/                       # API Spring Boot
-│   ├── src/main/java/ar/edu/uade/searchlink/
-│   │   ├── SearchLinkApplication.java
-│   │   ├── config/                # MongoConfig (MongoTemplate bean)
-│   │   ├── model/                 # @Document classes + enums
-│   │   ├── repository/            # MongoRepository interfaces
-│   │   ├── service/               # AlertaService (geoespacial + dispatch)
-│   │   └── controller/            # AlertaController
-│   ├── src/main/resources/application.properties
-│   ├── pom.xml
-│   └── Dockerfile
-│
-├── frontend/                      # Pendiente — React/Vite mínimo (P2)
-│
-├── mongo/
-│   └── init/01_init.js            # Init: colecciones, índices y seed (auto al primer boot)
-│
-├── docker-compose.yml             # Mongo + backend en red interna
-├── ARCHITECTURE.md                # Arquitectura en capas, flujos y decisiones
-├── DATABASE_DESIGN.md             # Modelado, índices, justificación NoSQL
-├── ESTADO.md                      # Diagnóstico vigente + decisiones de implementación
-└── README.md                      # Este archivo
-```
-
----
-
-## Cómo levantar el proyecto
-
-### Opción A — Docker Compose (recomendado)
-
-Requiere Docker y Docker Compose.
+Levanta MongoDB y el backend:
 
 ```bash
 docker compose up --build
 ```
 
-Esto levanta:
+- **MongoDB** en `localhost:27017`. El seed `mongo/init/01_init.js` corre **automáticamente al
+  primer boot** (cuando el volumen está vacío): crea las colecciones, los índices y **4 usuarios
+  QA** (ver tabla más abajo).
+- **Backend** Spring Boot en `localhost:8080`, conectado a Mongo por la red interna.
 
-- `mongodb` en `localhost:27017` (instancia única; `mongo/init/01_init.js` se ejecuta al primer boot y crea colecciones + índices + un usuario operador de prueba).
-- `backend` Spring Boot en `localhost:8080`, conectado a Mongo por nombre de red interna (`mongodb`).
+El **frontend NO está en el compose**: se levanta aparte.
 
-Variables de entorno por defecto en `docker-compose.yml`:
+```bash
+cd frontend
+npm install
+npm run dev          # Vite en http://localhost:5173
+```
+
+> **FCM en Docker queda DESHABILITADO por defecto:** el compose no pasa `FIREBASE_CREDENTIALS_PATH`,
+> así que el backend arranca igual pero sin enviar push. Ver la sección Firebase / FCM para
+> habilitarlo.
+
+---
+
+## Arranque sin Docker (backend local)
+
+Requiere **JDK 21**, Maven y un MongoDB 7 corriendo en `localhost:27017`.
+
+> ### ⚠️ NOTA CRÍTICA — JDK 21 obligatorio
+>
+> El Maven del host suele correr sobre **JDK 26** (default de Homebrew), que **rompe Lombok** al
+> compilar:
+> ```
+> java.lang.ExceptionInInitializerError: com.sun.tools.javac.code.TypeTag :: UNKNOWN
+> ```
+> Antes de `mvn test` o `mvn spring-boot:run` hay que apuntar `JAVA_HOME` a **JDK 21**:
+>
+> ```bash
+> export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home"
+> # alternativa portátil:
+> export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+> ```
+>
+> Esto aplica **solo sin Docker**. Dentro de `docker compose` el build usa
+> `maven:3.9-eclipse-temurin-21`, así que no hay que setear nada.
+
+```bash
+cd backend
+mvn spring-boot:run      # levanta en :8080
+```
+
+Si Mongo se levanta a mano (sin Docker), cargar los seeds la primera vez:
+
+```bash
+mongosh < mongo/init/01_init.js
+```
+
+---
+
+## Variables de entorno
+
+### Backend
+
+Todas tienen default (la app arranca sin definir ninguna).
 
 | Variable | Default | Para qué |
 |---|---|---|
-| `MONGO_URI` | `mongodb://mongodb:27017/searchlink` | Cadena de conexión a Mongo. |
+| `MONGO_URI` | `mongodb://localhost:27017/searchlink` | Cadena de conexión a Mongo (en Docker: `mongodb://mongodb:27017/searchlink`). |
 | `PORT` | `8080` | Puerto del backend. |
+| `SEARCHLINK_JWT_SECRET` | secret de dev | Clave de firma HS256 del JWT (cambiar en producción). |
+| `SEARCHLINK_JWT_EXPIRATION_MS` | `86400000` (24 h) | Vigencia del access token. |
+| `FIREBASE_CREDENTIALS_PATH` | *(vacío)* | Ruta al `serviceAccountKey.json`. Vacío → **FCM deshabilitado**. |
+| `SEARCHLINK_UPLOADS_DIR` | `uploads` | Carpeta en disco para las fotos subidas. |
 
-### Opción B — Sin Docker
+### Frontend
 
-Requiere Java 21 y Maven instalados, y MongoDB 7 corriendo en `localhost:27017`.
+Copiar `frontend/.env.example` a `frontend/.env` y completar las **7** variables:
 
-```bash
-# Backend
-cd backend
-mvn clean compile        # compila
-mvn spring-boot:run      # levanta en :8080
-mvn test                 # tests (cuando existan)
-mvn package -DskipTests  # genera el JAR en target/
+```
+VITE_API_BASE_URL
+VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+VITE_FIREBASE_VAPID_KEY
 ```
 
-La conexión a Mongo se toma de `MONGO_URI` si está seteada; si no, `mongodb://localhost:27017/searchlink` (ver `backend/src/main/resources/application.properties`).
+---
 
-Si se levanta Mongo a mano (sin Docker), correr `mongo/init/01_init.js` con `mongosh < mongo/init/01_init.js` la primera vez para crear los índices y el usuario seed.
+## Firebase / FCM
 
-### Endpoints implementados hoy
+Para habilitar el push real hacen falta dos cosas:
 
-Ver `backend/src/main/java/ar/edu/uade/searchlink/controller/`. Endpoints actualmente expuestos:
+1. **Backend:** un `serviceAccountKey.json` de la cuenta de servicio del proyecto Firebase, apuntado
+   por `FIREBASE_CREDENTIALS_PATH`. El archivo está **gitignored** (nunca se commitea). Sin él, el
+   backend arranca igual pero no envía push.
+2. **Frontend:** las `VITE_FIREBASE_*` cargadas en `frontend/.env`.
 
-| Método | Ruta | Estado |
+> **Config del cliente en DOS lugares.** Si se forkea a otro proyecto Firebase, hay que actualizar
+> **ambos**:
+> - `frontend/.env` → las `VITE_FIREBASE_*` (que consume la app).
+> - `frontend/public/firebase-messaging-sw.js` → el `firebaseConfig` está **hardcodeado** en el
+>   service worker (un SW no puede leer `import.meta.env`).
+
+---
+
+## Usuarios de prueba (QA)
+
+Cargados por el seed `mongo/init/01_init.js`:
+
+| Email | Password | Rol |
 |---|---|---|
-| `POST` | `/api/alertas` | Crea alerta. Ejecuta consulta geoespacial sobre `usuarios`. El despacho FCM real está pendiente. |
-| `GET` | `/api/alertas` | Lista alertas en estado `ACTIVA`. |
-| `PATCH` | `/api/alertas/{id}/estado?estado={ACTIVA|RESUELTA|CANCELADA}` | Cambia el estado. |
-
-Los endpoints de usuarios, dispositivos (tokens FCM) y avistamientos están en el plan de implementación del P2 — ver [`ESTADO.md`](ESTADO.md).
-
----
-
-## Estado de implementación
-
-| Bloque | Estado |
-|---|---|
-| Esqueleto Spring Boot + conexión Mongo | Hecho |
-| Modelos + índices (incluidos `2dsphere` y TTL) | Hecho |
-| Endpoints de Alerta (crear / listar / cambiar estado) | Hecho |
-| Consulta geoespacial `$nearSphere` sobre `usuarios` | Hecho (lógica); falta el dispatch al final |
-| Push real a Firebase FCM | Pendiente (TODO en `AlertaService`) |
-| Endpoints de Usuario / Avistamiento / registro de token FCM | Pendiente |
-| Auth mínima (rol admin vs estándar) | Pendiente (JWT robusto queda para Final) |
-| Frontend | Pendiente |
-| Documentación OpenAPI / Swagger | Pendiente |
-| Replica set / replicación | No forma parte del MVP — cubierto en papel en `DATABASE_DESIGN.md` |
-
-Plan de trabajo priorizado por ROI sobre la rúbrica en [`ESTADO.md`](ESTADO.md) §D3.
+| `admin@searchlink.dev` | `Admin1234` | ADMIN |
+| `operador@searchlink.dev` | `Operador1234` | OPERADOR |
+| `belgrano@searchlink.dev` | `Estandar1234` | ESTANDAR |
+| `caballito@searchlink.dev` | `Estandar1234` | ESTANDAR |
 
 ---
 
-## Documentación adicional
+## Documentación de la API
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — Arquitectura en capas, servicios, flujo principal de una alerta.
-- [`DATABASE_DESIGN.md`](DATABASE_DESIGN.md) — Modelado de colecciones, decisiones de embedding/referencia, índices, comparación con otras bases NoSQL.
-- [`ESTADO.md`](ESTADO.md) — Inventario real, rúbrica con evidencia, decisiones de implementación, plan P2 priorizado.
+Con el backend levantado:
+
+- **Swagger UI:** http://localhost:8080/swagger-ui/index.html
+- **Spec OpenAPI:** http://localhost:8080/v3/api-docs
+
+Para probar endpoints protegidos: obtener un JWT con `POST /api/sesiones` (login), tocar el botón
+**Authorize** de Swagger UI y pegar el token. A partir de ahí Swagger manda `Authorization: Bearer
+<token>` en cada request.
+
+---
+
+## Tests
+
+```bash
+mvn test          # con JAVA_HOME=JDK 21 si es sin Docker (ver nota crítica)
+```
+
+**67 tests verdes.** Usan **Flapdoodle** (MongoDB embebido), así que **no requieren** un Mongo
+corriendo.
 
 ---
 

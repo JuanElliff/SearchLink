@@ -8,10 +8,142 @@
 
 ---
 
+## Sesión 2026-06-15 (tarde) — verificación en vivo + FCM frontend
+
+> Sección más reciente. Cierra PASO 1 (verificación del flujo E2E en vivo) y PASO 2 (integración
+> FCM en el frontend con push end-to-end verificado). La sección "## Sesión 2026-06-15 — cierre"
+> de más abajo es la corrida de la mañana (frontend completo) y queda como referencia histórica.
+
+### Nuevos commits de esta corrida
+
+```
+98a5b64 feat(frontend): toast FCM dismissable + SW con config real del proyecto
+cd9c490 feat(frontend): integración FCM — suscripción push con botón explícito
+8dd36cb docs(estado): frontend completo + endpoints ADMIN/detalle, roadmap a verificación en vivo
+```
+
+### PASO 1 — Verificación del flujo en vivo: **CERRADO**
+
+Primera vez que el frontend tocó el backend real (`docker compose` + Vite). Flujo completo de los
+tres roles verificado end-to-end:
+
+- **OPERADOR** crea alerta → **ESTANDAR** la ve en el mapa / reporta avistamiento → **OPERADOR**
+  modera (verificar/descartar) → **ADMIN** gestiona usuarios (lista, toggle activo, alta de
+  OPERADOR/ADMIN).
+- Contrato frontend↔backend confirmado en vivo (CORS, encoding, shapes de DTOs anidados vs planos):
+  sin divergencias bloqueantes.
+
+### PASO 2 — FCM en el frontend + push E2E: **CERRADO**
+
+Integración FCM completa del lado cliente (commits **`cd9c490`** + **`98a5b64`**):
+
+- **Botón "Activar notificaciones"** en `Layout` con 3 estados: `default` (pide permiso),
+  `activo` (✓ check, token registrado), `denegado` (mensaje gracioso de cómo reactivar desde el
+  navegador, sin re-promptear en loop). Suscripción por botón explícito, **no** auto-prompt al
+  login (decisión cerrada: los navegadores penalizan el auto-prompt).
+- **Toast foreground** vía `onMessage` (dismissable por click, auto-cierre 5 s).
+- **`public/firebase-messaging-sw.js`** — service worker de background con `firebaseConfig`
+  embebido (valores públicos del proyecto `searchlink-firebase`) + compat SDK 10.12.2.
+- **`src/lib/firebase.js`** (init guarded por `VITE_FIREBASE_API_KEY`) + **`src/lib/fcm.js`**
+  (`suscribirFCM`: permiso → `getToken({ vapidKey, serviceWorkerRegistration })` →
+  `POST /api/dispositivos` con `plataforma: "WEB"`, JWT vía `apiFetch`).
+- **`firebaseConfig` + VAPID por `VITE_*` env vars** (`.env` gitignored; `.env.example` con las 6
+  claves `VITE_FIREBASE_*` documentadas, valores vacíos).
+- **Push E2E VERIFICADO:** banner del SO recibido en background por `belgrano` tras alerta creada
+  por el operador centrada en su zona. Token registrado en `usuarios.dispositivos[]`
+  (`plataforma: "WEB"`, `activo: true`). Backend logueó `Push alerta: 1 ok`.
+- **Backend arranca con `FIREBASE_CREDENTIALS_PATH`** apuntando al `serviceAccountKey.json` →
+  log `FCM habilitado: FirebaseApp inicializado desde ...`. (El bug de la sesión: el backend había
+  arrancado sin la env var → `FCM deshabilitado`; y el `.env` del frontend tenía la línea VAPID
+  malformada con el nombre de la var duplicado en el valor. Ambos corregidos.)
+
+### PASO 3 — Upload real de fotos: **CERRADO**
+
+Commit **`8c29d9c`** (pusheado a `origin/main`). Las fotos de alertas y avistamientos dejan de ser
+un `fotoUrl` string tipeado a mano: ahora se suben desde el dispositivo.
+
+- **Endpoints separados** `POST /api/uploads/alertas` y `POST /api/uploads/avistamientos`: reciben
+  el archivo (multipart `archivo`), lo guardan en `./uploads` y devuelven la **URL pública**. El
+  `create` de alerta/avistamiento sigue mandando `fotoUrl` en su JSON de siempre (con la URL que
+  devolvió el upload) — **ningún endpoint existente se transformó a multipart** (cero tests rotos).
+- **Storage:** `./uploads` en disco, servido como estático por un `WebMvcConfigurer`
+  (`ResourceHandler` **público** en `/uploads/**`: contenido de difusión tipo Alerta Sofía).
+  **Volumen Docker** `uploads-data:/app/uploads` para persistir entre recreaciones del contenedor.
+  Nombre de archivo UUID (no el del cliente; extensión derivada del content-type validado).
+- **Validación:** tipos jpeg/png/webp, tamaño máx **5 MB** (`spring.servlet.multipart.*` explícito;
+  los defaults de 1 MB rechazan fotos de celular). Oversize → 413; tipo inválido / archivo vacío → 400.
+- **Authz** (misma que el create al que alimentan): foto de **alerta solo OPERADOR**, foto de
+  **avistamiento cualquier autenticado**. El upload es identity-agnostic (solo persiste bytes); la
+  autoría real la fija el create desde el token. Matriz verificada por test: ESTANDAR/ADMIN → 403 en
+  alerta, anónimo → 401, foto servida pública sin token → 200.
+- **Frontend:** `apiFetch` ahora soporta `FormData` (rama que no setea Content-Type ni serializa,
+  reutiliza el JWT). `AlertaCrearPage` reemplazó el input de texto-URL por `<input type="file">` +
+  preview; `ReportarAvistamientoPage` ganó file picker con `capture="environment"` (tomar foto en el
+  momento en móvil) + preview. Sube primero, luego crea con la URL.
+- `.gitignore` **+`uploads/`**. **67/67 tests backend verdes** (10 nuevos de upload), sin regresión.
+
+### PASO 4.1 — Swagger/OpenAPI con bearer JWT: **CERRADO**
+
+Commit **`e385447`** (local, **sin pushear** todavía). Documentación interactiva de la API con
+botón "Authorize" funcional.
+
+- **`springdoc-openapi-starter-webmvc-ui` 2.6.0** (compatible con Spring Boot 3.3.4). Expone
+  `/swagger-ui/index.html` y el spec en `/v3/api-docs`.
+- **`config/OpenApiConfig.java`:** bean `OpenAPI` con Info (título "SearchLink API", versión "1.0",
+  descripción) + `SecurityScheme` HTTP **bearer / JWT** (`bearerAuth`) + `SecurityRequirement`
+  **global** → el botón **Authorize** de Swagger UI inyecta `Authorization: Bearer <token>` en todas
+  las pruebas.
+- **`SecurityConfig`:** abre como públicas `/swagger-ui/**`, `/swagger-ui.html`, `/v3/api-docs/**`
+  (decisión: **entorno de desarrollo**). **Nota de exposición documentada:** deja el esquema de la
+  API accesible sin auth; en producción sería un punto a revisar. Sin cambios en authz de negocio ni
+  CORS. NO se anotaron los controllers (`@Operation`/`@Tag`) en este bloque.
+- Verificado en vivo: `/swagger-ui/index.html` y `/v3/api-docs` → **200** (sin 401), scheme bearer +
+  requirement global presentes en el spec. **67/67 tests verdes, sin regresión.**
+
+### Decisiones documentadas esta sesión (defendibles en el oral)
+
+- **Filtro "ver solo alertas en mi zona" — DESCARTADO.** Contradice la difusión amplia tipo Alerta
+  Sofía (la gracia es que la alerta llegue lejos, no filtrarla por cercanía). En su lugar, bucket
+  (c) para el final: **mapa centrado en `ubicacion_precargada` + lista ordenada por cercanía**
+  (informa sin ocultar).
+- **Multi-ubicación (`ubicaciones_interes`) — DESCARTADO como scope creep.** Reescribiría la query
+  de push a `$or` sobre múltiples puntos; el caso del viajero ya lo cubre `ubicacion_actual`
+  (diferido). No se reabre sin motivo.
+- **Banner de background con texto genérico** ("se actualizó en segundo plano") — **DIFERIDO**.
+  Causa: conflicto de service workers (el `sw.js` de `vite-plugin-pwa`/Workbox vs
+  `firebase-messaging-sw.js`); el `push` event no llega a `onBackgroundMessage` del SW de Firebase
+  y Chrome muestra su fallback. **El push llega igual**; es cosmético. El backend ya manda el
+  nombre del menor en el `body` (`construirCuerpo`), así que al resolver el conflicto de SWs el
+  texto correcto aparece solo.
+
+### Estado del árbol
+
+`main` con los commits de esta corrida (`cd9c490`, `98a5b64`) **sin push**. El código FCM del
+frontend está completo y commiteado; el logging temporal de diagnóstico usado durante el debug se
+removió (working tree limpio). `.env` del frontend gitignored (con `firebaseConfig` + VAPID reales,
+fuera del repo). **57 tests backend verdes** (sin cambios en backend esta corrida).
+
+### Roadmap restante (orden de prioridad)
+
+> **PASO 3 (upload de fotos) y PASO 4.1 (Swagger/OpenAPI): CERRADOS** esta sesión (ver bloques arriba).
+
+1. **PASO 4.2 — Reescritura del README (próximo).** Alinearlo al stack real (Java/Spring/Mongo
+   single-node) e incorporar lo nuevo: FCM, upload de fotos, Swagger/OpenAPI.
+2. **PASO 4.3 — Manual de usuario por rol** (ADMIN / OPERADOR / ESTANDAR).
+3. **PASO 5 — Unidad IV en papel** (CAP / consistencia / replicación).
+4. **PASO 6 — Cierre / preparación de la defensa final.**
+5. **Bucket (c) — UX para el final:** ver-como-estándar (ADMIN/OPERADOR), lista histórica OPERADOR
+   (activas/resueltas), lista de alertas activas ESTANDAR ordenada por cercanía, ver-contraseña en
+   login, mapa centrado en ubicación.
+6. **Diferido/defendible:** recuperación de contraseña (requiere SMTP), upload offline de
+   avistamientos, conflicto de service workers del banner de background.
+
+---
+
 ## Sesión 2026-06-15 — cierre
 
-> Sección más reciente. Cierra el frontend completo (3 roles) y 3 micro-bloques de backend.
-> Lo anterior (2026-06-14 en adelante) queda como referencia histórica.
+> Corrida de la mañana del 2026-06-15. Cierra el frontend completo (3 roles) y 3 micro-bloques de
+> backend. Lo anterior (2026-06-14 en adelante) queda como referencia histórica.
 
 ### Log completo del repositorio (fuente de verdad)
 
