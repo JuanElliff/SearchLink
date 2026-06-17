@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import LocationPicker from '../components/LocationPicker'
+import Field from '../components/ui/Field'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -87,9 +88,9 @@ export default function CrearUsuarioPage() {
           </select>
         </div>
 
-        <Campo id="nombre" label="Nombre" required value={nombre} onChange={setNombre} error={errores.nombre} />
-        <Campo id="email"  label="Email"  required type="email" value={email} onChange={setEmail} error={errores.email} />
-        <Campo id="password" label="Contraseña" required type="password" value={password} onChange={setPassword}
+        <Field id="nombre" label="Nombre" required value={nombre} onChange={setNombre} error={errores.nombre} />
+        <Field id="email"  label="Email"  required type="email" value={email} onChange={setEmail} error={errores.email} />
+        <Field id="password" label="Contraseña" required type="password" value={password} onChange={setPassword}
           error={errores.password} hint="Mínimo 8 caracteres" />
 
         <div>
@@ -122,22 +123,6 @@ export default function CrearUsuarioPage() {
           </button>
         </div>
       </form>
-    </div>
-  )
-}
-
-function Campo({ id, label, type = 'text', required, value, onChange, error, hint }) {
-  return (
-    <div>
-      <label className="mb-1 block text-sm font-medium" htmlFor={id}>
-        {label}{required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input id={id} type={type} value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none"
-      />
-      {hint  && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet'
+import { MapContainer, Marker, Circle, Popup } from 'react-leaflet'
 import { apiFetch } from '../api/client'
+import BaseTiles from '../components/map/BaseTiles'
 import '../lib/leafletIcons'
 
 // EstadoVerificacion (verificado en backend/model/EstadoVerificacion.java)
@@ -91,10 +92,7 @@ export default function ModerarAvistamientosPage() {
       {/* Mapa: alerta + avistamientos */}
       <div className="h-72 w-full overflow-hidden rounded border border-slate-300">
         <MapContainer center={[alertaLat, alertaLng]} zoom={13} className="h-full w-full">
-          <TileLayer
-            attribution="&copy; OpenStreetMap"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <BaseTiles />
           {/* Alerta: marker + círculo de radio */}
           <Marker position={[alertaLat, alertaLng]}>
             <Popup><strong>Alerta:</strong> {alerta.nombreMenor}</Popup>

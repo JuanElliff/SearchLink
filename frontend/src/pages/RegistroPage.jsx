@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import LocationPicker from '../components/LocationPicker'
+import Field from '../components/ui/Field'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -71,9 +72,9 @@ export default function RegistroPage() {
         <p className="mb-6 text-sm text-slate-500">Te registrás como usuario estándar (ciudadanía).</p>
 
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
-          <Campo id="nombre" label="Nombre" value={nombre} onChange={setNombre} error={errores.nombre} />
-          <Campo id="email" label="Email" type="email" value={email} onChange={setEmail} error={errores.email} />
-          <Campo id="password" label="Contraseña" type="password" value={password} onChange={setPassword} error={errores.password} hint="Mínimo 8 caracteres" />
+          <Field id="nombre" label="Nombre" value={nombre} onChange={setNombre} error={errores.nombre} />
+          <Field id="email" label="Email" type="email" value={email} onChange={setEmail} error={errores.email} />
+          <Field id="password" label="Contraseña" type="password" value={password} onChange={setPassword} error={errores.password} hint="Mínimo 8 caracteres" />
 
           <div>
             <label className="mb-1 block text-sm font-medium">Ubicación</label>
@@ -98,21 +99,6 @@ export default function RegistroPage() {
           </Link>
         </p>
       </div>
-    </div>
-  )
-}
-
-function Campo({ id, label, type = 'text', value, onChange, error, hint }) {
-  return (
-    <div>
-      <label className="mb-1 block text-sm font-medium" htmlFor={id}>{label}</label>
-      <input
-        id={id} type={type} value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none"
-      />
-      {hint && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

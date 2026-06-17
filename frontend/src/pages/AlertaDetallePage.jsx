@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Circle } from 'react-leaflet'
+import { MapContainer, Marker, Circle } from 'react-leaflet'
 import { apiFetch } from '../api/client'
+import BaseTiles from '../components/map/BaseTiles'
 import '../lib/leafletIcons'
 
 const ESTADO_LABEL = {
@@ -73,10 +74,7 @@ export default function AlertaDetallePage() {
       {/* Mapa con círculo de radio */}
       <div className="h-64 w-full overflow-hidden rounded border border-slate-300">
         <MapContainer center={[lat, lng]} zoom={13} className="h-full w-full">
-          <TileLayer
-            attribution="&copy; OpenStreetMap"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <BaseTiles />
           <Marker position={[lat, lng]} />
           <Circle
             center={[lat, lng]}

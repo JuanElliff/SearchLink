@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
+import { MapContainer, Marker, useMapEvents, useMap } from 'react-leaflet'
+import BaseTiles from './map/BaseTiles'
 import '../lib/leafletIcons'
 
 const DEFAULT_CENTER = [-34.6037, -58.3816] // Buenos Aires
@@ -50,10 +51,7 @@ export default function LocationPicker({ value, onChange }) {
       </div>
       <div className="h-64 w-full overflow-hidden rounded border border-slate-300">
         <MapContainer center={position || DEFAULT_CENTER} zoom={12} className="h-full w-full">
-          <TileLayer
-            attribution="&copy; OpenStreetMap"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <BaseTiles />
           <ClickHandler onPick={(lat, lng) => onChange({ latitud: lat, longitud: lng })} />
           {position && <Marker position={position} />}
           {position && <Recenter position={position} />}

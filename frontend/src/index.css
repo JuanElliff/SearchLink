@@ -1,3 +1,71 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Tokens de diseño (paleta semántica). Única fuente de verdad de color.
+   Los neutros siguen la escala `slate` de Tailwind y se usan tal cual.
+   Estos tokens se exponen como clases (bg-primary, text-danger, …) vía
+   tailwind.config.js → theme.extend.colors.
+   Todo color tiene función: superficie/encuadre, jerarquía o estado.
+   ──────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Superficies y encuadre */
+  --color-bg: #f8fafc;        /* slate-50 — fondo de página */
+  --color-surface: #ffffff;   /* blanco — superficie de cards */
+  --color-border: #e2e8f0;    /* slate-200 — bordes/encuadres */
+
+  /* Marca (jerarquía visual). DISTINTO de --color-primary (acción). */
+  --color-brand: #1e3a8a;     /* blue-900 */
+
+  /* Primario: azul sobrio único para UI/acción (blue-700). */
+  --color-primary: #1d4ed8;
+  --color-primary-hover: #1e40af;  /* blue-800 */
+  --color-primary-active: #1e3a8a; /* blue-900 */
+  --color-primary-50: #eff6ff;     /* fondo tenue */
+  --color-primary-200: #bfdbfe;    /* borde */
+  --color-primary-700: #1d4ed8;    /* texto sobre tenue */
+
+  /* Semánticos: sólido (DEFAULT) + tenue -50 (fondo) / -200 (borde) / -700 (texto). */
+  /* danger = RESERVADO a alertas activas/urgentes y acciones destructivas. */
+  --color-danger: #dc2626;         /* red-600 */
+  --color-danger-hover: #b91c1c;   /* red-700 */
+  --color-danger-50: #fef2f2;
+  --color-danger-200: #fecaca;
+  --color-danger-700: #b91c1c;
+
+  --color-success: #16a34a;        /* green-600 */
+  --color-success-50: #f0fdf4;
+  --color-success-200: #bbf7d0;
+  --color-success-700: #15803d;
+
+  --color-warning: #d97706;        /* amber-600 */
+  --color-warning-50: #fffbeb;
+  --color-warning-200: #fde68a;
+  --color-warning-700: #b45309;
+
+  --color-muted: #64748b;          /* slate-500 */
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Jerarquía tipográfica base. Las páginas pueden sobrescribir con utilidades;
+   esto sólo fija los defaults para que hereden un sistema coherente.
+   Máx. 4 tamaños (2xl / lg / base / sm). Pesos: regular / medium / semibold.
+   ──────────────────────────────────────────────────────────────────────── */
+@layer base {
+  body {
+    @apply bg-slate-50 font-sans text-base text-slate-900 antialiased;
+  }
+  h1 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+  h2 {
+    @apply text-lg font-semibold;
+  }
+  h3 {
+    @apply text-base font-medium;
+  }
+  small {
+    @apply text-sm text-muted;
+  }
+}

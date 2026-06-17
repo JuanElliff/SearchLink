@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, Marker, Popup } from 'react-leaflet'
 import { apiFetch } from '../api/client'
+import BaseTiles from '../components/map/BaseTiles'
 import '../lib/leafletIcons'
 
 const DEFAULT_CENTER = [-34.6037, -58.3816]
@@ -29,10 +30,7 @@ export default function EstandarHomePage() {
       {!cargando && !error && (
         <div className="h-[70vh] w-full overflow-hidden rounded border border-slate-300">
           <MapContainer center={DEFAULT_CENTER} zoom={12} className="h-full w-full">
-            <TileLayer
-              attribution="&copy; OpenStreetMap"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <BaseTiles />
             {alertas.map((alerta) => {
               // GeoJSON: coordinates = [lng, lat] → Leaflet necesita [lat, lng]
               const lat = alerta.ubicacion.coordinates[1]
