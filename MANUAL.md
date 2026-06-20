@@ -1,6 +1,6 @@
 # Manual de usuario — SearchLink
 
-SearchLink es una plataforma para difundir y colaborar en la búsqueda de personas desaparecidas.
+SearchLink es una plataforma para difundir y colaborar en la búsqueda de menores desaparecidos.
 Cuando se publica una alerta, los ciudadanos cercanos reciben un aviso y pueden reportar si vieron a
 la persona. Hay tres tipos de usuario:
 

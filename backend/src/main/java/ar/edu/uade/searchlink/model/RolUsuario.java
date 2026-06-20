@@ -5,7 +5,7 @@ package ar.edu.uade.searchlink.model;
  * responsabilidades:
  *
  *  - ADMIN:    dueño/administrador de la aplicación. Gestiona usuarios (crea operadores
- *              y otros admins) y modera avistamientos. NO emite alertas.
+ *              y otros admins). NO emite alertas ni modera avistamientos.
  *  - OPERADOR: autoridad operativa. Emite y gestiona alertas; modera avistamientos.
  *  - ESTANDAR: ciudadanía. Reporta avistamientos y recibe notificaciones push.
  *
