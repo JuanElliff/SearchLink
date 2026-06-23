@@ -29,6 +29,7 @@ public class FcmService {
     private static final Logger log = LoggerFactory.getLogger(FcmService.class);
 
     private static final String TITULO = "SearchLink — alerta cercana";
+    private static final int MAX_TOKENS_POR_LOTE = 500;
 
     /**
      * Envía la alerta como push multicast a los tokens dados.
@@ -47,20 +48,32 @@ public class FcmService {
                 return List.of();
             }
 
-            MulticastMessage mensaje = MulticastMessage.builder()
-                    .addAllTokens(tokens)
-                    .setNotification(Notification.builder()
-                            .setTitle(TITULO)
-                            .setBody(construirCuerpo(alerta))
-                            .build())
-                    // El frontend usa alertaId para abrir el detalle. putData no acepta null.
-                    .putData("alertaId", idDe(alerta))
+            Notification notificacion = Notification.builder()
+                    .setTitle(TITULO)
+                    .setBody(construirCuerpo(alerta))
                     .build();
+            String alertaId = idDe(alerta);
 
-            BatchResponse respuesta = FirebaseMessaging.getInstance().sendEachForMulticast(mensaje);
-            List<String> muertos = recolectarTokensMuertos(tokens, respuesta);
+            List<String> muertos = new ArrayList<>();
+            int totalOk = 0;
+            int totalFallidos = 0;
+
+            for (int offset = 0; offset < tokens.size(); offset += MAX_TOKENS_POR_LOTE) {
+                List<String> lote = tokens.subList(offset, Math.min(offset + MAX_TOKENS_POR_LOTE, tokens.size()));
+                MulticastMessage mensaje = MulticastMessage.builder()
+                        .addAllTokens(lote)
+                        .setNotification(notificacion)
+                        // El frontend usa alertaId para abrir el detalle. putData no acepta null.
+                        .putData("alertaId", alertaId)
+                        .build();
+                BatchResponse respuesta = FirebaseMessaging.getInstance().sendEachForMulticast(mensaje);
+                muertos.addAll(recolectarTokensMuertos(lote, respuesta));
+                totalOk += respuesta.getSuccessCount();
+                totalFallidos += respuesta.getFailureCount();
+            }
+
             log.info("Push alerta {}: {} ok, {} fallidos, {} tokens muertos a depurar",
-                    idDe(alerta), respuesta.getSuccessCount(), respuesta.getFailureCount(), muertos.size());
+                    alertaId, totalOk, totalFallidos, muertos.size());
             return muertos;
         } catch (Exception e) {
             log.error("Error enviando push FCM para la alerta {}", idDe(alerta), e);
