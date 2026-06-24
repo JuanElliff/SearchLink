@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 
 // Valores válidos de EstadoAlerta (verificados en backend/model/EstadoAlerta.java).
@@ -110,7 +110,7 @@ export default function AlertaEditarPage() {
             className="rounded bg-sky-600 px-5 py-2 font-medium text-white hover:bg-sky-700 disabled:opacity-60">
             {enviando ? 'Guardando…' : 'Guardar cambios'}
           </button>
-          <button type="button" onClick={() => navigate('/operador')}
+          <button type="button" onClick={() => navigate('/operador', { state: { ts: Date.now() } })}
             className="rounded border border-slate-300 px-5 py-2 text-slate-700 hover:bg-slate-50">
             Volver a la lista
           </button>

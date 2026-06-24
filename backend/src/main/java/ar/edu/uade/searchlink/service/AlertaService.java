@@ -70,6 +70,10 @@ public class AlertaService {
         return alertaRepository.findByEstado(EstadoAlerta.ACTIVA);
     }
 
+    public List<Alerta> listarTodas() {
+        return alertaRepository.findAll();
+    }
+
     /**
      * Detalle de una alerta por id, sin importar su estado (activa/resuelta/cancelada): el
      * deep-link del push debe poder abrir la alerta aunque ya no esté activa. 404 si no existe.

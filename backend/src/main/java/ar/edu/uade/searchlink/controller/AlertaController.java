@@ -34,9 +34,16 @@ public class AlertaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(AlertaResponse.from(creada));
     }
 
+    /**
+     * Lista alertas. Sin parámetro devuelve solo ACTIVAS (ruta pública/ciudadanía).
+     * Con ?todas=true devuelve todas independientemente del estado; solo OPERADOR/ADMIN.
+     */
     @GetMapping
-    public ResponseEntity<List<AlertaResponse>> listarActivas() {
-        List<AlertaResponse> alertas = alertaService.listarActivas().stream()
+    public ResponseEntity<List<AlertaResponse>> listar(
+            @RequestParam(name = "todas", defaultValue = "false") boolean todas) {
+        List<AlertaResponse> alertas = (todas
+                ? alertaService.listarTodas()
+                : alertaService.listarActivas()).stream()
                 .map(AlertaResponse::from)
                 .toList();
         return ResponseEntity.ok(alertas);
