@@ -6,14 +6,15 @@ import Field from '../components/ui/Field'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// Validación en cliente espejando RegistroUsuarioRequest del backend.
-function validar({ nombre, email, password, ubicacion }) {
+function validar({ nombre, email, password, confirmarPassword, ubicacion }) {
   const errores = {}
   if (!nombre.trim()) errores.nombre = 'El nombre es obligatorio'
   if (!email.trim()) errores.email = 'El email es obligatorio'
   else if (!EMAIL_RE.test(email)) errores.email = 'El email no tiene un formato válido'
   if (!password) errores.password = 'La contraseña es obligatoria'
   else if (password.length < 8) errores.password = 'La contraseña debe tener al menos 8 caracteres'
+  if (!confirmarPassword) errores.confirmarPassword = 'Confirmá la contraseña'
+  else if (password && password !== confirmarPassword) errores.confirmarPassword = 'Las contraseñas no coinciden'
   if (!ubicacion) errores.ubicacion = 'La ubicación es obligatoria'
   else if (
     ubicacion.latitud < -90 || ubicacion.latitud > 90 ||
@@ -29,6 +30,7 @@ export default function RegistroPage() {
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmarPassword, setConfirmarPassword] = useState('')
   const [ubicacion, setUbicacion] = useState(null)
   const [errores, setErrores] = useState({})
   const [errorServidor, setErrorServidor] = useState(null)
@@ -37,7 +39,7 @@ export default function RegistroPage() {
   const onSubmit = async (e) => {
     e.preventDefault()
     setErrorServidor(null)
-    const errs = validar({ nombre, email, password, ubicacion })
+    const errs = validar({ nombre, email, password, confirmarPassword, ubicacion })
     setErrores(errs)
     if (Object.keys(errs).length > 0) return
 
@@ -75,6 +77,7 @@ export default function RegistroPage() {
           <Field id="nombre" label="Nombre" value={nombre} onChange={setNombre} error={errores.nombre} />
           <Field id="email" label="Email" type="email" value={email} onChange={setEmail} error={errores.email} />
           <Field id="password" label="Contraseña" type="password" value={password} onChange={setPassword} error={errores.password} hint="Mínimo 8 caracteres" />
+          <Field id="confirmarPassword" label="Confirmar contraseña" type="password" value={confirmarPassword} onChange={setConfirmarPassword} error={errores.confirmarPassword} />
 
           <div>
             <label className="mb-1 block text-sm font-medium">Ubicación</label>
