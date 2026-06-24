@@ -1,5 +1,6 @@
 package ar.edu.uade.searchlink.service;
 
+import ar.edu.uade.searchlink.dto.ActualizarPerfilRequest;
 import ar.edu.uade.searchlink.dto.RegistroUsuarioRequest;
 import ar.edu.uade.searchlink.exception.CredencialesInvalidasException;
 import ar.edu.uade.searchlink.exception.EmailDuplicadoException;
@@ -103,6 +104,46 @@ public class UsuarioService {
             throw new OperacionInvalidaException("Un ADMIN no puede desactivarse a sí mismo");
         }
         usuario.setActivo(activo);
+        return usuarioRepository.save(usuario);
+    }
+
+    /**
+     * Cambia el rol de un usuario. Solo ADMIN. Guard: un ADMIN no puede cambiar su propio rol.
+     */
+    public Usuario cambiarRol(String id, RolUsuario nuevoRol, String adminId) {
+        if (id.equals(adminId)) {
+            throw new OperacionInvalidaException("Un ADMIN no puede cambiar su propio rol");
+        }
+        Usuario usuario = buscarPorId(id);
+        usuario.setRol(nuevoRol);
+        usuario.setActualizadoEn(new Date());
+        return usuarioRepository.save(usuario);
+    }
+
+    /**
+     * Actualiza el perfil del propio usuario: nombre, ubicación y/o contraseña.
+     * Requiere que el id del token coincida con el id del recurso (verificado en el controller).
+     */
+    public Usuario actualizarPerfil(String id, ActualizarPerfilRequest req) {
+        Usuario usuario = buscarPorId(id);
+
+        if (req.nombre() != null && !req.nombre().isBlank()) {
+            usuario.setNombre(req.nombre().trim());
+        }
+
+        if (req.latitud() != null && req.longitud() != null) {
+            usuario.setUbicacionPrecargada(
+                    new org.springframework.data.mongodb.core.geo.GeoJsonPoint(req.longitud(), req.latitud()));
+        }
+
+        if (req.nuevaPassword() != null && !req.nuevaPassword().isBlank()) {
+            if (req.passwordActual() == null || !passwordEncoder.matches(req.passwordActual(), usuario.getPasswordHash())) {
+                throw new OperacionInvalidaException("La contraseña actual es incorrecta");
+            }
+            usuario.setPasswordHash(passwordEncoder.encode(req.nuevaPassword()));
+        }
+
+        usuario.setActualizadoEn(new Date());
         return usuarioRepository.save(usuario);
     }
 

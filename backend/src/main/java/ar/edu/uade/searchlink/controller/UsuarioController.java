@@ -1,6 +1,8 @@
 package ar.edu.uade.searchlink.controller;
 
+import ar.edu.uade.searchlink.dto.ActualizarPerfilRequest;
 import ar.edu.uade.searchlink.dto.CambiarActivoRequest;
+import ar.edu.uade.searchlink.dto.CambiarRolRequest;
 import ar.edu.uade.searchlink.dto.RegistroUsuarioRequest;
 import ar.edu.uade.searchlink.dto.UsuarioResponse;
 import ar.edu.uade.searchlink.model.Usuario;
@@ -81,5 +83,23 @@ public class UsuarioController {
     @PreAuthorize("#id == authentication.name or hasAnyRole('ADMIN', 'OPERADOR')")
     public ResponseEntity<UsuarioResponse> obtener(@PathVariable String id) {
         return ResponseEntity.ok(UsuarioResponse.from(usuarioService.buscarPorId(id)));
+    }
+
+    /** Cambia el rol de un usuario. Solo ADMIN. Guard: no puede cambiar su propio rol. */
+    @PatchMapping("/{id}/rol")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UsuarioResponse> cambiarRol(@PathVariable String id,
+                                                      @Valid @RequestBody CambiarRolRequest req,
+                                                      Authentication authentication) {
+        return ResponseEntity.ok(UsuarioResponse.from(
+                usuarioService.cambiarRol(id, req.rol(), authentication.getName())));
+    }
+
+    /** Actualiza el perfil del propio usuario (nombre, ubicación, contraseña). */
+    @PatchMapping("/{id}/perfil")
+    @PreAuthorize("#id == authentication.name")
+    public ResponseEntity<UsuarioResponse> actualizarPerfil(@PathVariable String id,
+                                                            @Valid @RequestBody ActualizarPerfilRequest req) {
+        return ResponseEntity.ok(UsuarioResponse.from(usuarioService.actualizarPerfil(id, req)));
     }
 }
