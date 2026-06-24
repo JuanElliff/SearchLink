@@ -19,7 +19,7 @@ export async function suscribirFCM() {
   const permiso = await Notification.requestPermission()
   if (permiso !== 'granted') return { estado: 'denegado' }
 
-  const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+  const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-sw/' })
   const token = await getToken(messaging, {
     vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
     serviceWorkerRegistration: swReg,

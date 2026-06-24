@@ -6,6 +6,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   plugins: [
     react(),
+    {
+      name: 'firebase-sw-header',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url === '/firebase-messaging-sw.js') {
+            res.setHeader('Service-Worker-Allowed', '/')
+          }
+          next()
+        })
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
