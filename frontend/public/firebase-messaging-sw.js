@@ -16,10 +16,26 @@ firebase.initializeApp({
 const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage(payload => {
-  const title = payload.notification?.title ?? 'SearchLink'
-  const body = payload.notification?.body ?? ''
+  const title = payload.data?.title ?? 'SearchLink'
+  const body = payload.data?.body ?? ''
+  const alertaId = payload.data?.alertaId
   self.registration.showNotification(title, {
     body,
     icon: '/icon.svg',
+    requireInteraction: true,
+    data: { alertaId },
   })
+})
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  const alertaId = event.notification.data?.alertaId
+  const url = alertaId ? `/alerta/${alertaId}` : '/'
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(wins => {
+      const open = wins.find(w => w.url.includes('/alerta/') && 'focus' in w)
+      if (open) return open.focus()
+      return clients.openWindow(url)
+    })
+  )
 })

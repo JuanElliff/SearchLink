@@ -20,8 +20,8 @@ export default function Layout() {
 
   useEffect(() => {
     const unsub = escucharMensajesForeground(payload => {
-      const title = payload.notification?.title ?? 'SearchLink'
-      const body = payload.notification?.body ?? ''
+      const title = payload.data?.title ?? 'SearchLink'
+      const body = payload.data?.body ?? ''
       setToast({ title, body })
       setTimeout(() => setToast(null), 5000)
     })

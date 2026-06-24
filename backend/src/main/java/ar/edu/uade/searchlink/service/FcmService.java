@@ -7,7 +7,6 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.MulticastMessage;
-import com.google.firebase.messaging.Notification;
 import com.google.firebase.messaging.SendResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,11 +47,8 @@ public class FcmService {
                 return List.of();
             }
 
-            Notification notificacion = Notification.builder()
-                    .setTitle(TITULO)
-                    .setBody(construirCuerpo(alerta))
-                    .build();
             String alertaId = idDe(alerta);
+            String body = construirCuerpo(alerta);
 
             List<String> muertos = new ArrayList<>();
             int totalOk = 0;
@@ -62,8 +58,8 @@ public class FcmService {
                 List<String> lote = tokens.subList(offset, Math.min(offset + MAX_TOKENS_POR_LOTE, tokens.size()));
                 MulticastMessage mensaje = MulticastMessage.builder()
                         .addAllTokens(lote)
-                        .setNotification(notificacion)
-                        // El frontend usa alertaId para abrir el detalle. putData no acepta null.
+                        .putData("title", TITULO)
+                        .putData("body", body)
                         .putData("alertaId", alertaId)
                         .build();
                 BatchResponse respuesta = FirebaseMessaging.getInstance().sendEachForMulticast(mensaje);
