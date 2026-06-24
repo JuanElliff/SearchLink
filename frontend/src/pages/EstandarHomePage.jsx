@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MapContainer, Marker, Popup } from 'react-leaflet'
 import { apiFetch } from '../api/client'
 import BaseTiles from '../components/map/BaseTiles'
-import '../lib/leafletIcons'
+import { iconAlerta } from '../lib/leafletIcons'
 
 const DEFAULT_CENTER = [-34.6037, -58.3816]
 
@@ -36,7 +36,7 @@ export default function EstandarHomePage() {
               const lat = alerta.ubicacion.coordinates[1]
               const lng = alerta.ubicacion.coordinates[0]
               return (
-                <Marker key={alerta.id} position={[lat, lng]}>
+                <Marker key={alerta.id} position={[lat, lng]} icon={iconAlerta}>
                   <Popup>
                     <strong>{alerta.nombreMenor}</strong>
                     {alerta.edad != null && <span>, {alerta.edad} años</span>}

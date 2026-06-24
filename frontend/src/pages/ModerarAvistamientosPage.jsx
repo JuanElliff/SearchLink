@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { MapContainer, Marker, Circle, Popup } from 'react-leaflet'
 import { apiFetch } from '../api/client'
 import BaseTiles from '../components/map/BaseTiles'
-import '../lib/leafletIcons'
+import { iconAlerta, iconAvistamiento } from '../lib/leafletIcons'
 
 // EstadoVerificacion (verificado en backend/model/EstadoVerificacion.java)
 const ESTADO_BADGE = {
@@ -94,7 +94,7 @@ export default function ModerarAvistamientosPage() {
         <MapContainer center={[alertaLat, alertaLng]} zoom={13} className="h-full w-full">
           <BaseTiles />
           {/* Alerta: marker + círculo de radio */}
-          <Marker position={[alertaLat, alertaLng]}>
+          <Marker position={[alertaLat, alertaLng]} icon={iconAlerta}>
             <Popup><strong>Alerta:</strong> {alerta.nombreMenor}</Popup>
           </Marker>
           <Circle
@@ -108,7 +108,7 @@ export default function ModerarAvistamientosPage() {
             const lat = av.ubicacion.coordinates[1]
             const lng = av.ubicacion.coordinates[0]
             return (
-              <Marker key={av.id} position={[lat, lng]}>
+              <Marker key={av.id} position={[lat, lng]} icon={iconAvistamiento}>
                 <Popup>
                   <strong>Avistamiento</strong>
                   <br />{av.descripcion}

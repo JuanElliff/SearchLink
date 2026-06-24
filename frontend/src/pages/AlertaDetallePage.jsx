@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { MapContainer, Marker, Circle } from 'react-leaflet'
 import { apiFetch } from '../api/client'
 import BaseTiles from '../components/map/BaseTiles'
-import '../lib/leafletIcons'
+import { iconAlerta } from '../lib/leafletIcons'
 
 const ESTADO_LABEL = {
   ACTIVA: { texto: 'Activa', cls: 'bg-green-100 text-green-800' },
@@ -75,7 +75,7 @@ export default function AlertaDetallePage() {
       <div className="h-64 w-full overflow-hidden rounded border border-slate-300">
         <MapContainer center={[lat, lng]} zoom={13} className="h-full w-full">
           <BaseTiles />
-          <Marker position={[lat, lng]} />
+          <Marker position={[lat, lng]} icon={iconAlerta} />
           <Circle
             center={[lat, lng]}
             radius={radioMetros}
