@@ -5,6 +5,11 @@ import { apiFetch } from '../api/client'
 import BaseTiles from '../components/map/BaseTiles'
 import { iconAlerta } from '../lib/leafletIcons'
 
+function formatFechaCorta(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
 const ESTADO_LABEL = {
   ACTIVA: { texto: 'Activa', cls: 'bg-green-100 text-green-800' },
   RESUELTA: { texto: 'Resuelta', cls: 'bg-slate-100 text-slate-600' },
@@ -23,12 +28,16 @@ export default function AlertaDetallePage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [alerta, setAlerta] = useState(null)
+  const [avistamientos, setAvistamientos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    apiFetch(`/api/alertas/${id}`)
-      .then(setAlerta)
+    Promise.all([
+      apiFetch(`/api/alertas/${id}`),
+      apiFetch(`/api/avistamientos?alertaId=${id}`),
+    ])
+      .then(([a, av]) => { setAlerta(a); setAvistamientos(av) })
       .catch((e) => setError(e.status === 404 ? 'Alerta no encontrada.' : e.message))
       .finally(() => setCargando(false))
   }, [id])
@@ -99,6 +108,34 @@ export default function AlertaDetallePage() {
           <dd className="text-slate-900">{formatFecha(alerta.expiraEn)}</dd>
         </div>
       </dl>
+
+      {/* Avistamientos confirmados */}
+      <div>
+        <h2 className="mb-3 font-semibold text-slate-800">Avistamientos confirmados</h2>
+        {avistamientos.length === 0 ? (
+          <p className="text-sm text-slate-500">Sin avistamientos confirmados aún.</p>
+        ) : (
+          <div className="space-y-3">
+            {avistamientos.map((av) => (
+              <div key={av.id} className="rounded border border-slate-200 bg-white p-4 space-y-2">
+                {av.descripcion && (
+                  <p className="text-slate-800 text-sm">{av.descripcion}</p>
+                )}
+                {av.fotoUrl && (
+                  <img
+                    src={av.fotoUrl}
+                    alt="Foto del avistamiento"
+                    className="max-h-40 rounded object-cover"
+                  />
+                )}
+                <p className="text-xs text-slate-400">
+                  Reportado {formatFechaCorta(av.creadoEn)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Acciones */}
       <div className="flex gap-3">

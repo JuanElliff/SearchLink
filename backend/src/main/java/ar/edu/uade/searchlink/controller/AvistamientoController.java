@@ -33,12 +33,26 @@ public class AvistamientoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(AvistamientoResponse.from(creado));
     }
 
-    /** Listar los avistamientos de una alerta. Cualquier autenticado. */
+    /**
+     * Listar avistamientos de una alerta. OPERADOR recibe todos los estados con comentariosAdmin;
+     * cualquier otro rol autenticado (ESTANDAR, ADMIN) recibe solo los VERIFICADOS sin
+     * comentariosAdmin.
+     */
     @GetMapping
-    public ResponseEntity<List<AvistamientoResponse>> listarPorAlerta(@RequestParam String alertaId) {
-        List<AvistamientoResponse> avistamientos = avistamientoService.listarPorAlerta(alertaId).stream()
-                .map(AvistamientoResponse::from)
-                .toList();
+    public ResponseEntity<List<AvistamientoResponse>> listarPorAlerta(@RequestParam String alertaId,
+                                                                       Authentication authentication) {
+        boolean esOperador = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_OPERADOR"));
+        List<AvistamientoResponse> avistamientos;
+        if (esOperador) {
+            avistamientos = avistamientoService.listarPorAlerta(alertaId).stream()
+                    .map(AvistamientoResponse::from)
+                    .toList();
+        } else {
+            avistamientos = avistamientoService.listarVerificadosPorAlerta(alertaId).stream()
+                    .map(AvistamientoResponse::fromPublico)
+                    .toList();
+        }
         return ResponseEntity.ok(avistamientos);
     }
 

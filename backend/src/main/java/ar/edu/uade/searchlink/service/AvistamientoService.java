@@ -49,6 +49,10 @@ public class AvistamientoService {
         return avistamientoRepository.findByAlertaId(alertaId);
     }
 
+    public List<Avistamiento> listarVerificadosPorAlerta(String alertaId) {
+        return avistamientoRepository.findByAlertaIdAndEstado(alertaId, EstadoVerificacion.VERIFICADO);
+    }
+
     public Avistamiento obtener(String id) {
         return avistamientoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Avistamiento no encontrado: " + id));

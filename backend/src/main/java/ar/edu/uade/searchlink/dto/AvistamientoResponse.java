@@ -32,6 +32,17 @@ public record AvistamientoResponse(
                 a.getFotoUrl(), a.getEstado(), a.getComentariosAdmin(), a.getCreadoEn());
     }
 
+    /** Vista reducida para ESTANDAR: omite comentariosAdmin (dato interno del operador). */
+    public static AvistamientoResponse fromPublico(Avistamiento a) {
+        UbicacionResponse ubic = a.getUbicacion() == null
+                ? null
+                : new UbicacionResponse("Point",
+                        List.of(a.getUbicacion().getX(), a.getUbicacion().getY()));
+        return new AvistamientoResponse(
+                a.getId(), a.getAlertaId(), a.getReportadoPor(), ubic, a.getDescripcion(),
+                a.getFotoUrl(), a.getEstado(), null, a.getCreadoEn());
+    }
+
     /** Ubicación en formato GeoJSON estándar para la salida. */
     public record UbicacionResponse(String type, List<Double> coordinates) {
     }
