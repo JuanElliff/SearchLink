@@ -7,7 +7,7 @@ function estadoNotifInicial() {
   if (!fcmConfigurado()) return 'no-configurado'
   if (!('Notification' in window)) return 'no-soportado'
   if (Notification.permission === 'denied') return 'denegado'
-  if (Notification.permission === 'granted' && fcmRegistrado()) return 'activo'
+  if (Notification.permission === 'granted' && fcmRegistrado())  return 'activo'
   return 'default'
 }
 
@@ -79,6 +79,12 @@ export default function Layout() {
             <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-medium">
               {rol}
             </span>
+            <Link
+              to="/perfil"
+              className="rounded bg-slate-700 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
+            >
+              Mi perfil
+            </Link>
             <button
               onClick={onLogout}
               className="rounded bg-slate-100 px-3 py-1 font-medium text-slate-900 hover:bg-white"
@@ -103,3 +109,4 @@ export default function Layout() {
     </div>
   )
 }
+ 

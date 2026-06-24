@@ -12,6 +12,7 @@ import ModerarAvistamientosPage from './pages/ModerarAvistamientosPage'
 import EstandarHomePage from './pages/EstandarHomePage'
 import AlertaDetallePage from './pages/AlertaDetallePage'
 import ReportarAvistamientoPage from './pages/ReportarAvistamientoPage'
+import PerfilPage from './pages/PerfilPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 export default function App() {
@@ -93,6 +94,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ReportarAvistamientoPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <PerfilPage />
             </ProtectedRoute>
           }
         />
